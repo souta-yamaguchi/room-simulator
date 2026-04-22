@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# build output (Cloudflare Pages が自動生成するので含めない)
+dist/
+
+# editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# local-only backups
+*.bak
+room_layout_*.json
+
+# logs
+*.log
+npm-debug.log*
+
+# env
+.env
+.env.local

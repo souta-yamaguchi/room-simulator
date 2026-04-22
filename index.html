@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>部屋の模様替えシミュレーター</title>
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0a0a0a; color: #eee; }
+      /* 初期ロード/戻るボタン時のチラつきを防ぐため、デフォルトは非表示 → JS側で ready クラス付与でフェードイン */
+      body { opacity: 0; transition: opacity 0.25s ease; }
+      body.ready { opacity: 1; }
+      #app { display: flex; height: 100vh; }
+      #sidebar { width: 280px; min-width: 280px; flex-shrink: 0; background: #22252b; padding: 16px; box-sizing: border-box; overflow-y: auto; border-right: 1px solid #333; }
+      #sidebar h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #8aa; margin: 16px 0 8px; }
+      #sidebar h2:first-child { margin-top: 0; }
+      .palette { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+      .palette button { padding: 10px 6px; background: #2f333b; color: #eee; border: 1px solid #3a3f48; border-radius: 6px; cursor: pointer; font-size: 13px; }
+      .palette button:hover { background: #3b424c; }
+      .palette button.active { background: #4a5f7c; border-color: #e8d06a; }
+      .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+      .swatch { aspect-ratio: 1; border: 2px solid #3a3f48; border-radius: 6px; cursor: pointer; position: relative; }
+      .swatch:hover { border-color: #6a8aac; }
+      .swatch.active { border-color: #e8d06a; box-shadow: 0 0 0 1px #e8d06a inset; }
+      .swatch-label { font-size: 10px; color: #999; text-align: center; margin-top: 2px; }
+      .subhead { font-size: 11px; color: #9ab; margin: 6px 0 4px; }
+      .row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; font-size: 12px; color: #bbb; }
+      .row input[type="range"] { width: 100%; }
+      .actions { display: grid; gap: 6px; }
+      .actions button { padding: 8px; background: #3a6ea5; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+      .actions button.danger { background: #8b3a3a; }
+      .actions button:hover { filter: brightness(1.1); }
+      #canvas-wrap { flex: 1 1 0; min-width: 0; position: relative; overflow: hidden; }
+      #canvas-wrap > canvas { display: block; width: 100% !important; height: 100% !important; }
+      #hint { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #ddd; pointer-events: none; }
+      #hint b { color: #ffc; }
+      #status { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 6px; font-size: 12px; color: #9c9; min-height: 16px; }
+      details.panel { border-bottom: 1px solid #2d3036; }
+      details.panel > summary { list-style: none; cursor: pointer; padding: 10px 0; user-select: none; position: relative; }
+      details.panel > summary::-webkit-details-marker { display: none; }
+      details.panel > summary > h2 { margin: 0; display: inline; }
+      details.panel > summary::after { content: '▼'; position: absolute; right: 4px; top: 50%; transform: translateY(-50%) rotate(0deg); transition: transform 0.2s; font-size: 10px; color: #666; }
+      details.panel:not([open]) > summary::after { transform: translateY(-50%) rotate(-90deg); }
+      details.panel > .panel-body { padding-bottom: 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <details class="panel" open>
+          <summary><h2>家具を追加</h2></summary>
+          <div class="panel-body">
+            <div id="palette" class="palette"></div>
+            <div class="subhead" style="margin-top:10px;">構造を追加</div>
+            <div id="design-palette" class="palette"></div>
+            <div class="subhead" style="margin-top:10px;">選択中のサイズ</div>
+            <div class="row">
+              <label>幅(X) <span id="size-x-val">-</span>cm</label>
+              <input id="size-x" type="range" min="5" max="600" step="1" value="100" />
+            </div>
+            <div class="row">
+              <label>高さ(Y) <span id="size-y-val">-</span>cm</label>
+              <input id="size-y" type="range" min="1" max="400" step="1" value="100" />
+            </div>
+            <div class="row">
+              <label>奥行き(Z) <span id="size-z-val">-</span>cm</label>
+              <input id="size-z" type="range" min="2" max="600" step="1" value="100" />
+            </div>
+            <div class="row">
+              <label>Y位置(上下) <span id="pos-y-val">-</span>cm（机上=76）</label>
+              <input id="pos-y" type="range" min="0" max="300" step="1" value="0" />
+            </div>
+            <div class="row" style="flex-direction:row;gap:6px;">
+              <button id="size-reset" style="flex:1;padding:6px;background:#555;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">標準サイズに戻す</button>
+              <button id="size-lock" style="flex:1;padding:6px;background:#3a6ea5;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🔗比率固定 OFF</button>
+            </div>
+            <div class="row" style="flex-direction:row;gap:6px;margin-top:4px;">
+              <button id="snap-right-angle" style="flex:1;padding:6px;background:#3a8b6e;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">⊥ 直角にスナップ (P)</button>
+            </div>
+            <div class="subhead" style="margin-top:10px;">選択中の家具の色</div>
+            <div class="row" style="display:flex;gap:6px;align-items:center;">
+              <input id="furn-color" type="color" value="#ffffff" style="width:48px;height:32px;border:1px solid #3a3f48;border-radius:4px;background:transparent;cursor:pointer;" />
+              <button id="furn-color-apply" style="flex:1;padding:6px;background:#3a6ea5;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">家具に反映</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><h2>部屋のデザイン</h2></summary>
+          <div class="panel-body">
+            <div class="subhead">壁紙（柄パターン）</div>
+            <div id="wallpaper-palette" class="palette"></div>
+            <div class="subhead" style="margin-top:10px;">床</div>
+            <div id="floor-palette" class="palette"></div>
+            <div class="subhead" style="margin-top:10px;">壁の色（全壁一括）</div>
+            <div class="row" style="display:flex;gap:6px;align-items:center;">
+              <input id="wall-color" type="color" value="#ebe5d8" style="width:48px;height:32px;border:1px solid #3a3f48;border-radius:4px;background:transparent;cursor:pointer;" />
+              <button id="wall-color-apply" style="flex:1;padding:6px;background:#3a6ea5;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">全壁に反映</button>
+            </div>
+            <div class="subhead" style="margin-top:10px;">壁ごとの色</div>
+            <div id="wall-color-per" style="display:flex;flex-direction:column;gap:4px;"></div>
+            <button id="wall-color-reset-all" style="margin-top:6px;padding:6px;background:#555;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">個別色をすべてリセット</button>
+            <div class="subhead" style="margin-top:10px;">天井</div>
+            <div class="row" style="display:flex;gap:6px;align-items:center;">
+              <input id="ceiling-color" type="color" value="#f4f0e6" style="width:48px;height:32px;border:1px solid #3a3f48;border-radius:4px;background:transparent;cursor:pointer;" />
+              <button id="ceiling-color-apply" style="flex:1;padding:6px;background:#3a6ea5;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;">天井に反映</button>
+            </div>
+            <div class="row" style="display:flex;gap:6px;align-items:center;">
+              <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+                <input id="ceiling-visible" type="checkbox" checked /> 天井を表示
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><h2>部屋の形・サイズ</h2></summary>
+          <div class="panel-body">
+            <div class="row">
+              <select id="room-shape" style="padding:6px; background:#2f333b; color:#eee; border:1px solid #3a3f48; border-radius:4px;">
+                <option value="rect">長方形</option>
+                <option value="L">L字型</option>
+                <option value="U">コの字型</option>
+              </select>
+            </div>
+            <div class="row"><label>幅 <span id="w-val">6.0</span>m</label><input id="room-w" type="range" min="3" max="15" step="0.1" value="6" /></div>
+            <div class="row"><label>奥行き <span id="d-val">4.0</span>m</label><input id="room-d" type="range" min="3" max="15" step="0.1" value="4" /></div>
+            <div class="row"><label>高さ <span id="h-val">2.7</span>m</label><input id="room-h" type="range" min="2.2" max="4" step="0.1" value="2.7" /></div>
+            <div class="row notch-only"><label>切り欠き 幅 <span id="nw-val">2.0</span>m</label><input id="notch-w" type="range" min="0.5" max="10" step="0.1" value="2" /></div>
+            <div class="row notch-only"><label>切り欠き 奥行き <span id="nd-val">2.0</span>m</label><input id="notch-d" type="range" min="0.5" max="10" step="0.1" value="2" /></div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary><h2>視点</h2></summary>
+          <div class="panel-body">
+            <div class="actions">
+              <button id="view-3d">3D視点</button>
+              <button id="view-top">上から見る（間取り）</button>
+              <button id="view-walk" style="background:#a8633a;">🚶 一人称で歩く</button>
+              <button id="view-bg-toggle" style="background:#666;">背景を切替</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><h2>プリセット・操作</h2></summary>
+          <div class="panel-body">
+            <div class="actions">
+              <button id="preset-office">写真の部屋を再現</button>
+              <button id="save-btn">レイアウトを保存</button>
+              <button id="load-btn">最後の保存を読み込み</button>
+              <button id="export-btn" style="background:#3a8b6e;">JSONファイルに書き出し</button>
+              <button id="import-btn" style="background:#6a3a8b;">JSONファイルから読込</button>
+              <input id="import-file" type="file" accept="application/json,.json" style="display:none;" />
+              <button id="reset-btn" class="danger">全部消す</button>
+            </div>
+          </div>
+        </details>
+      </aside>
+      <div id="canvas-wrap">
+        <div id="hint">
+          マウス: カメラ / クリック: 家具選択<br>
+          <b>T</b>移動 <b>R</b>回転 <b>S</b>拡大 <b>C</b>複製 <b>P</b>直角スナップ <b>Del</b>削除 <b>Esc</b>選択解除<br>
+          <b>Shift</b>＋回転で絶対90°スナップ / <b>Shift</b>＋移動で25cmスナップ
+        </div>
+        <div id="status"></div>
+        <div id="walk-indicator" style="display:none; position:absolute; top:10%; left:50%; transform:translateX(-50%); color:white; background:rgba(0,0,0,0.6); padding:8px 14px; border-radius:8px; font-size:12px; pointer-events:none; text-align:center;">
+          🚶 一人称視点中 / <small>WASD移動 マウス視点 Shiftしゃがむ Space伸びる クリックでNPCに話しかける Esc終了</small>
+        </div>
+        <div id="walk-crosshair" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:12px; height:12px; border:1.5px solid rgba(255,255,255,0.8); border-radius:50%; pointer-events:none; box-shadow:0 0 6px rgba(0,0,0,0.5);"></div>
+        <div id="exit-prompt" style="display:none; position:absolute; bottom:25%; left:50%; transform:translateX(-50%); background:linear-gradient(135deg,#d93a5a,#b02040); color:#ffffff; padding:14px 32px; border-radius:10px; font-size:17px; font-weight:bold; z-index:25; pointer-events:none; font-family:'Hiragino Kaku Gothic ProN','ヒラギノ角ゴ ProN W3',Meiryo,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.5); letter-spacing:0.04em;">
+          🚪 <span id="exit-prompt-label">仮想オフィスを出る</span>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
