@@ -118,13 +118,13 @@
         color: #fff; border: none; border-radius: 8px; cursor: pointer;
       }
 
+      /* "一人称視点中" 表示は PC/モバイルとも常時非表示 (画面の邪魔) */
+      #walk-indicator { display: none !important; }
       /* ---- レスポンシブ (タッチデバイス or 幅 ≤ 900px) ---- */
       @media (max-width: 900px), (pointer: coarse) {
         #sidebar { display: none !important; }
         /* PC専用ショートカット説明 (マウス:カメラ/T移動 R回転...) はモバイルでは不要 */
         #hint { display: none !important; }
-        /* "一人称視点中" 表示もモバイルでは不要 (画面が狭くて邪魔) */
-        #walk-indicator { display: none !important; }
         /* モバイルは exit-prompt 自体をタップしてリンク先に飛べるようにする */
         #exit-prompt {
           bottom: 28% !important; font-size: 14px !important; padding: 10px 20px !important;
