@@ -9,13 +9,16 @@ import { updateLivings } from './livings.js';
 import { updateBubbles, getCurrentDialogNpc, isNpcDialogActive } from './npc.js';
 import { CafeBGM } from './bgm.js';
 import { updateInteractions } from './interactions.js';
+import { IS_TOUCH } from './mobileControls.js';
 
 // --- モード判定: ?admin=<ADMIN_KEY> 付きなら管理者モード、無ければ訪問者モード ---
 // 本番公開時、このキーを知っている人だけが管理者UIを触れる。
 // キーを変更したい場合はこの文字列を書き換えて再デプロイすること。
 const ADMIN_KEY = 'oyoyo-office-admin-2026';
 const urlParams = new URLSearchParams(window.location.search);
-const IS_ADMIN = urlParams.get('admin') === ADMIN_KEY;
+const IS_ADMIN_REQUESTED = urlParams.get('admin') === ADMIN_KEY;
+// タッチデバイスでは管理者UIが事実上使えないので、自動的に訪問者扱いにする(警告は別途表示)
+const IS_ADMIN = IS_ADMIN_REQUESTED && !IS_TOUCH;
 
 const container = document.getElementById('canvas-wrap');
 const statusEl = document.getElementById('status');
@@ -104,9 +107,21 @@ walkMode.bgm = cafeBgm;
 setupUI({ scene, room, furnitureList, selector, setStatus, camera, orbit, walkMode, isAdmin: IS_ADMIN });
 
 // --- 訪問者モードではサイドバーを隠し、welcomeオーバーレイから一人称に直行
+// タッチデバイスで?admin=...でアクセスされた場合、警告オーバーレイを表示
+if (IS_ADMIN_REQUESTED && IS_TOUCH) {
+  const warn = document.getElementById('mobile-admin-warn');
+  if (warn) warn.style.display = 'block';
+  document.getElementById('mobile-admin-continue')?.addEventListener('click', () => {
+    if (warn) warn.style.display = 'none';
+  });
+}
+
 if (!IS_ADMIN) {
   const sidebar = document.getElementById('sidebar');
   if (sidebar) sidebar.style.display = 'none';
+  // 訪問者モードでは右上のクイック一人称ボタンも不要(welcome画面から入場するため)
+  const quickWalkBtn = document.getElementById('quick-walk-btn');
+  if (quickWalkBtn) quickWalkBtn.style.display = 'none';
   // selector無効化(訪問者は家具を選択・移動できない)
   selector.readOnly = true;
   // OrbitControlsも常時無効化(3D視点やトップビュー操作を防ぐ)
@@ -134,9 +149,9 @@ if (!IS_ADMIN) {
   ].join(';');
   welcome.innerHTML = `
     <h1 style="font-size:36px;margin:0 0 12px;letter-spacing:0.08em;">バーチャルオフィスへようこそ</h1>
-    <p style="font-size:15px;color:#c8d4e0;margin:0 0 32px;">WASDで移動・マウスで視点・NPCに話しかけられます</p>
+    <p style="font-size:15px;color:#c8d4e0;margin:0 0 32px;">${IS_TOUCH ? '左下ジョイスティックで移動・画面ドラッグで視点・タップで話しかけ' : 'WASDで移動・マウスで視点・NPCに話しかけられます'}</p>
     <button id="enter-office-btn" style="font-size:18px;padding:14px 40px;background:linear-gradient(135deg,#e84a78,#d0386a);color:#fff;border:none;border-radius:8px;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,0.4);letter-spacing:0.1em;">オフィスに入る</button>
-    <p style="font-size:12px;color:#6a7890;margin:32px 0 0;">Escで一旦外に出られます</p>
+    <p style="font-size:12px;color:#6a7890;margin:32px 0 0;">${IS_TOUCH ? '右上 ✕ で一旦外に出られます' : 'Escで一旦外に出られます'}</p>
   `;
   container.appendChild(welcome);
 
@@ -181,14 +196,30 @@ if (!IS_ADMIN) {
     const crossHair = document.getElementById('walk-crosshair');
     if (walkInd) walkInd.style.display = 'block';
     if (crossHair) crossHair.style.display = 'block';
+    // モバイルUIの表示
+    if (IS_TOUCH) {
+      const js = document.getElementById('mobile-joystick');
+      const exitBtn = document.getElementById('mobile-exit-btn');
+      if (js) js.style.display = 'block';
+      if (exitBtn) exitBtn.style.display = 'block';
+    }
   };
   document.getElementById('enter-office-btn').addEventListener('click', enterOffice);
+  // モバイル用: 退出ボタン
+  document.getElementById('mobile-exit-btn')?.addEventListener('click', () => {
+    if (walkMode.enabled) walkMode.disable();
+  });
 
   // Esc等で walk mode を出たら、welcome画面を再表示して再入場可能に
   // ただし外部リンク遷移中はwelcomeのチラ見えを避けるため表示しない
   const prevOnExit = walkMode.onExit;
   walkMode.onExit = () => {
     prevOnExit?.();
+    // モバイルUIを隠す
+    const js = document.getElementById('mobile-joystick');
+    const exitBtn = document.getElementById('mobile-exit-btn');
+    if (js) js.style.display = 'none';
+    if (exitBtn) exitBtn.style.display = 'none';
     if (!isNavigatingAway) welcome.style.display = 'flex';
   };
 }

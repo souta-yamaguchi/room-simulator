@@ -98,6 +98,9 @@ export class Room {
     this.height = 2.7;
     this.notchW = 2.0;
     this.notchD = 2.0;
+    // 片側だけ壁を外側に押し出す量(m)。長方形のときのみ有効。
+    // xMinus=左壁を-x方向に、xPlus=右壁を+x方向に、zMinus=奥壁を-z方向に、zPlus=手前壁を+z方向に押し出す。
+    this.wallExpand = { xMinus: 0, xPlus: 0, zMinus: 0, zPlus: 0 };
 
     // --- 床
     this.floorTextureCache = {};
@@ -288,7 +291,18 @@ export class Room {
   }
 
   updateGeometry() {
-    const verts = shapeVertices(this.shape, this.width, this.depth, this.notchW, this.notchD);
+    let verts;
+    if (this.shape === 'rect') {
+      // 長方形は片側ずつ非対称に広げられる
+      const e = this.wallExpand || {};
+      const xMin = -this.width / 2 - (e.xMinus || 0);
+      const xMax =  this.width / 2 + (e.xPlus  || 0);
+      const zMin = -this.depth / 2 - (e.zMinus || 0);
+      const zMax =  this.depth / 2 + (e.zPlus  || 0);
+      verts = [[xMin, zMin], [xMax, zMin], [xMax, zMax], [xMin, zMax]];
+    } else {
+      verts = shapeVertices(this.shape, this.width, this.depth, this.notchW, this.notchD);
+    }
     this._polygon = verts;
 
     // --- 床: ShapeGeometryで多角形生成。rotation.x = -π/2 で (sx, sy) → world(sx, 0, -sy)
@@ -383,6 +397,11 @@ export class Room {
   setNotch(notchW, notchD) {
     this.notchW = notchW;
     this.notchD = notchD;
+    this.updateGeometry();
+  }
+
+  setWallExpand(expand) {
+    Object.assign(this.wallExpand, expand);
     this.updateGeometry();
   }
 

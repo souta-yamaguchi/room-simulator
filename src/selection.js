@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import { updateWallHoles } from './wallHoles.js';
+import { randomizeFurnitureContent } from './furniture.js';
 
 function disposeObject(obj) {
   obj.traverse((child) => {
@@ -54,6 +56,11 @@ export class Selector {
       // 移動中のみ家具同士のエッジスナップ（近接時に面がピタッと触れる）
       if (this.transform.mode === 'translate') {
         this._snapToFurnitureEdges();
+      }
+      // 内壁/通り抜け窓枠を動かしたら穴を再計算
+      const t = this.selected.userData?.furnitureType;
+      if (t === 'wall' || t === 'passWindow') {
+        updateWallHoles(this.furnitureList);
       }
       if (this.boxHelper) this.boxHelper.update();
     });
@@ -285,11 +292,14 @@ export class Selector {
   deleteSelected() {
     if (!this.selected) return;
     const obj = this.selected;
+    const t = obj.userData?.furnitureType;
     this.deselect();
     const idx = this.furnitureList.indexOf(obj);
     if (idx >= 0) this.furnitureList.splice(idx, 1);
     this.scene.remove(obj);
     disposeObject(obj);
+    // passWindow 削除で塞がれた壁を復元、内壁削除も穴情報の整合のため再計算
+    if (t === 'wall' || t === 'passWindow') updateWallHoles(this.furnitureList);
     this.onChange?.();
   }
 
@@ -317,6 +327,8 @@ export class Selector {
         }
       });
     }
+    // パッチワークラグなど、複製ごとに内容をランダム化する家具のフック
+    randomizeFurnitureContent(copy);
     copy.position.x += 0.3;
     copy.position.z += 0.3;
     this.scene.add(copy);

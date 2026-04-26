@@ -10,6 +10,7 @@ import { WALLPAPER_PRESETS, FLOOR_PRESETS, ROOM_SHAPES } from './room.js';
 import { saveLayout, loadLayout, clearLayout } from './storage.js';
 import { showNpcSpeech, startNpcDialog, advanceNpcDialog, isNpcDialogActive, closeNpcDialog, getCurrentDialogNpc } from './npc.js';
 import { toggleInteraction } from './interactions.js';
+import { updateWallHoles } from './wallHoles.js';
 
 function disposeFurniture(obj) {
   obj.traverse((child) => {
@@ -52,6 +53,10 @@ function spawnPositionFor(type, room) {
   if (type === 'window') {
     // 窓下端=0.9mを基本（従来デフォルトと同じ高さ）。fixedYでY位置スライダーが下げられるよう管理
     return { position: [room.width / 2 - 0.06, 0.9, 0], rotationY: -Math.PI / 2, fixedY: 0.9 };
+  }
+  if (type === 'passWindow') {
+    // 掃き出し窓は床から立ち上げる(Y=0)。壁面に貼り付ける向きで右壁にスポーン。
+    return { position: [room.width / 2 - 0.06, 0, 0], rotationY: -Math.PI / 2, fixedY: 0 };
   }
   if (type === 'wall') {
     return { position: [0, 0, 0], rotationY: Math.PI / 2 };
@@ -138,6 +143,8 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
       scene.add(obj);
       furnitureList.push(obj);
       selector.select(obj);
+      // 内壁/通り抜け窓枠を追加したら穴を再計算
+      if (type === 'wall' || type === 'passWindow') updateWallHoles(furnitureList);
       setStatus(`${preset.label} を追加しました`);
     });
     designPalette.appendChild(btn);
@@ -410,6 +417,8 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
       }
       selector.refreshBox();
       syncSizeUI();
+      const t = sel.userData?.furnitureType;
+      if (t === 'wall' || t === 'passWindow') updateWallHoles(furnitureList);
     };
 
     sizeXEl.addEventListener('input', () => {
@@ -464,10 +473,14 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
   // --- 部屋形状セレクト
   const shapeEl = document.getElementById('room-shape');
   const notchRows = document.querySelectorAll('.notch-only');
+  const rectOnlyRows = document.querySelectorAll('.rect-only');
 
   const updateNotchVisibility = () => {
     const usesNotch = ROOM_SHAPES[room.shape]?.usesNotch;
     for (const row of notchRows) row.style.display = usesNotch ? '' : 'none';
+    // 片側広げUIは長方形だけ表示
+    const isRect = room.shape === 'rect';
+    for (const row of rectOnlyRows) row.style.display = isRect ? '' : 'none';
   };
 
   shapeEl.addEventListener('change', () => {
@@ -491,19 +504,41 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
   const nwVal = document.getElementById('nw-val');
   const ndVal = document.getElementById('nd-val');
 
+  // 片側広げスライダー
+  const ezmEl = document.getElementById('exp-z-minus');
+  const ezpEl = document.getElementById('exp-z-plus');
+  const exmEl = document.getElementById('exp-x-minus');
+  const expEl = document.getElementById('exp-x-plus');
+  const ezmVal = document.getElementById('ezm-val');
+  const ezpVal = document.getElementById('ezp-val');
+  const exmVal = document.getElementById('exm-val');
+  const expVal = document.getElementById('exp-val');
+
   const applyRoom = () => {
     const w = parseFloat(wEl.value);
     const d = parseFloat(dEl.value);
     const h = parseFloat(hEl.value);
     const nw = parseFloat(nwEl.value);
     const nd = parseFloat(ndEl.value);
+    const ezm = parseFloat(ezmEl?.value || 0);
+    const ezp = parseFloat(ezpEl?.value || 0);
+    const exm = parseFloat(exmEl?.value || 0);
+    const exp = parseFloat(expEl?.value || 0);
     wVal.textContent = w.toFixed(1);
     dVal.textContent = d.toFixed(1);
     hVal.textContent = h.toFixed(1);
     nwVal.textContent = nw.toFixed(1);
     ndVal.textContent = nd.toFixed(1);
+    if (ezmVal) ezmVal.textContent = ezm.toFixed(1);
+    if (ezpVal) ezpVal.textContent = ezp.toFixed(1);
+    if (exmVal) exmVal.textContent = exm.toFixed(1);
+    if (expVal) expVal.textContent = exp.toFixed(1);
     room.setNotch(nw, nd);
-    room.setSize(w, d, h);
+    room.wallExpand.zMinus = ezm;
+    room.wallExpand.zPlus = ezp;
+    room.wallExpand.xMinus = exm;
+    room.wallExpand.xPlus = exp;
+    room.setSize(w, d, h); // updateGeometry を呼ぶので wallExpand も反映される
     for (const m of furnitureList) room.clampInside(m);
     selector.refreshBox();
   };
@@ -512,6 +547,10 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
   hEl.addEventListener('input', applyRoom);
   nwEl.addEventListener('input', applyRoom);
   ndEl.addEventListener('input', applyRoom);
+  ezmEl?.addEventListener('input', applyRoom);
+  ezpEl?.addEventListener('input', applyRoom);
+  exmEl?.addEventListener('input', applyRoom);
+  expEl?.addEventListener('input', applyRoom);
 
   updateNotchVisibility();
 
@@ -523,6 +562,10 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
     hEl.value = room.height;
     nwEl.value = room.notchW;
     ndEl.value = room.notchD;
+    if (ezmEl) ezmEl.value = room.wallExpand?.zMinus ?? 0;
+    if (ezpEl) ezpEl.value = room.wallExpand?.zPlus ?? 0;
+    if (exmEl) exmEl.value = room.wallExpand?.xMinus ?? 0;
+    if (expEl) expEl.value = room.wallExpand?.xPlus ?? 0;
     updateNotchVisibility();
     applyRoom();
     rebuildWallColorPer();
@@ -576,22 +619,27 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
     // 一人称視点
     if (walkMode) {
       const walkBtn = document.getElementById('view-walk');
+      const quickWalkBtn = document.getElementById('quick-walk-btn');
       const walkInd = document.getElementById('walk-indicator');
       const crossHair = document.getElementById('walk-crosshair');
-      walkBtn?.addEventListener('click', () => {
+      const enterWalk = () => {
         // 選択中の家具があると操作競合するので解除
         selector.deselect();
         walkMode.enable();
         if (walkInd) walkInd.style.display = 'block';
         if (crossHair) crossHair.style.display = 'block';
+        if (quickWalkBtn) quickWalkBtn.style.display = 'none';
         // カフェBGM開始(ボタンクリックがuser gestureなのでAudioContextがresumeできる)
         walkMode.bgm?.start();
         setStatus('一人称視点: WASDで移動 / クリックでNPC / Esc で終了');
-      });
+      };
+      walkBtn?.addEventListener('click', enterWalk);
+      quickWalkBtn?.addEventListener('click', enterWalk);
       const origOnExit = walkMode.onExit;
       walkMode.onExit = () => {
         if (walkInd) walkInd.style.display = 'none';
         if (crossHair) crossHair.style.display = 'none';
+        if (quickWalkBtn) quickWalkBtn.style.display = '';
         origOnExit?.();
       };
     }
@@ -611,6 +659,7 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
               notchW: room.notchW, notchD: room.notchD, wallpaper: room.currentWallpaper,
               floor: room.currentFloor, wallColor,
               wallColorOverrides: { ...room.wallColorOverrides },
+              wallExpand: { ...room.wallExpand },
               ceilingColor: '#' + room.ceilingMaterial.color.getHexString(),
               ceilingVisible: room.ceiling.visible },
       // export は serializeFurniture に統一(quaternion込みで向きの精度を保つ)
@@ -743,6 +792,12 @@ function applyLayout(data, { scene, room, furnitureList, selector, swatchButtons
     if (data.room.shape) room.shape = data.room.shape;
     if (data.room.notchW != null) room.notchW = data.room.notchW;
     if (data.room.notchD != null) room.notchD = data.room.notchD;
+    if (data.room.wallExpand) {
+      Object.assign(room.wallExpand, data.room.wallExpand);
+    } else {
+      // 旧データには wallExpand が無いので 0 にリセット
+      room.wallExpand = { xMinus: 0, xPlus: 0, zMinus: 0, zPlus: 0 };
+    }
     room.setSize(data.room.width, data.room.depth, data.room.height);
     if (data.room.wallpaper && WALLPAPER_PRESETS[data.room.wallpaper]) {
       room.setWallpaper(data.room.wallpaper);
@@ -775,11 +830,15 @@ function applyLayout(data, { scene, room, furnitureList, selector, swatchButtons
   for (const f of data.furniture || []) {
     try {
       const obj = deserializeFurniture(f);
-      if (f.type === 'wall') applyWallpaperToWall(obj, room);
+      // 内壁は通常 room.wallMaterial を共有(壁紙連動)するが、個別色オーバーライドが
+      // 設定されているときは専用マテリアルを残すためここで置換しない。
+      if (f.type === 'wall' && !f.colorOverride) applyWallpaperToWall(obj, room);
       scene.add(obj);
       furnitureList.push(obj);
     } catch (e) {
       console.warn('skipping unknown furniture', f, e);
     }
   }
+  // 全家具配置後に内壁の穴を計算
+  updateWallHoles(furnitureList);
 }

@@ -79,6 +79,32 @@ function resolveCollision(pet, furnitureList) {
   const pos = pet.position;
   const tmpBox = new THREE.Box3();
 
+  // 窓枠レーン内のペットは、その窓枠と重なる内壁を通過可能とする (深さ方向は制限なし)。
+  const PAD_LANE = 0.10;
+  const passableWalls = new Set();
+  for (const pw of furnitureList) {
+    if (pw.userData?.furnitureType !== 'passWindow') continue;
+    pw.updateWorldMatrix(true, true);
+    const pwBox = new THREE.Box3().setFromObject(pw);
+    const sx = pwBox.max.x - pwBox.min.x;
+    const sz = pwBox.max.z - pwBox.min.z;
+    let inLane;
+    if (sx >= sz) {
+      inLane = pos.x >= pwBox.min.x - PAD_LANE && pos.x <= pwBox.max.x + PAD_LANE;
+    } else {
+      inLane = pos.z >= pwBox.min.z - PAD_LANE && pos.z <= pwBox.max.z + PAD_LANE;
+    }
+    if (!inLane) continue;
+    for (const w of furnitureList) {
+      if (w.userData?.furnitureType !== 'wall') continue;
+      w.updateWorldMatrix(true, true);
+      const wBox = new THREE.Box3().setFromObject(w);
+      const xOverlap = wBox.max.x > pwBox.min.x && wBox.min.x < pwBox.max.x;
+      const zOverlap = wBox.max.z > pwBox.min.z && wBox.min.z < pwBox.max.z;
+      if (xOverlap && zOverlap) passableWalls.add(w);
+    }
+  }
+
   for (let pass = 0; pass < 2; pass++) {
     let pushed = false;
     for (const obj of furnitureList) {
@@ -86,6 +112,8 @@ function resolveCollision(pet, furnitureList) {
       if (obj.userData?.skipClamp) continue;
       if (obj.userData?.isPet) continue; // 他のペット同士は擦り抜け
       if (obj.userData?.isPerson) continue; // 人アバターも擦り抜け（戯れる用途）
+      // 窓枠レーン内にいるとき、その窓枠と重なる内壁は通過
+      if (passableWalls.has(obj)) continue;
       obj.updateWorldMatrix(true, true);
       tmpBox.setFromObject(obj);
       if (tmpBox.max.y < BODY_BOTTOM || tmpBox.min.y > BODY_TOP) continue;

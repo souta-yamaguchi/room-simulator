@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { IS_TOUCH, VirtualJoystick, TouchCamera } from './mobileControls.js';
 
 const EYE_HEIGHT = 1.6;
 
@@ -33,15 +34,31 @@ export class WalkMode {
     this._onKey = this._onKey.bind(this);
     this._onClick = this._onClick.bind(this);
     this._raycaster = new THREE.Raycaster();
-    this.onNpcClick = null; // ui.jsで登録: (npc) => {}
-    this.onEmptyClick = null; // ui.jsで登録: ダイアログの前進用
-    this.onInteract = null;   // ui.jsで登録: インタラクティブ家具クリック (group) => {}
+    this.onNpcClick = null;
+    this.onEmptyClick = null;
+    this.onInteract = null;
+
+    // タッチデバイス: PointerLockの代わりに仮想ジョイスティック + タッチカメラ
+    this.isTouch = IS_TOUCH;
+    if (this.isTouch) {
+      const js = document.getElementById('mobile-joystick');
+      const knob = js?.querySelector('.knob');
+      if (js && knob) {
+        this.joystick = new VirtualJoystick(js, knob);
+      }
+      this.touchCamera = new TouchCamera(camera, renderer.domElement, {
+        getJoystickRect: () => js?.getBoundingClientRect() ?? null,
+        onTap: () => this._onClick(),
+      });
+    }
   }
 
   // 一人称視点でのマウスクリック: 画面中央からレイキャスト
   // 優先順位: インタラクティブ家具 > NPC/ペット > 空クリック
+  // (モバイル時は controls.isLocked==false でも呼ばれる)
   _onClick(e) {
-    if (!this.enabled || !this.controls.isLocked) return;
+    if (!this.enabled) return;
+    if (!this.isTouch && !this.controls.isLocked) return;
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera);
     const hits = this._raycaster.intersectObjects(this.furnitureList || [], true);
     if (hits.length > 0) {
@@ -95,7 +112,12 @@ export class WalkMode {
     }
 
     this.orbit.enabled = false;
-    this.controls.lock();
+    if (this.isTouch) {
+      // モバイル: PointerLock 不使用、タッチカメラ起動
+      this.touchCamera?.attach();
+    } else {
+      this.controls.lock();
+    }
 
     window.addEventListener('keydown', this._onKey);
     window.addEventListener('keyup', this._onKey);
@@ -108,11 +130,13 @@ export class WalkMode {
     this.keys.forward = this.keys.back = this.keys.left = this.keys.right = false;
     this.keys.up = this.keys.down = false;
 
-    if (this.controls.isLocked) this.controls.unlock();
+    if (this.isTouch) {
+      this.touchCamera?.detach();
+    } else if (this.controls.isLocked) {
+      this.controls.unlock();
+    }
     this.orbit.enabled = true;
 
-    // walk mode 中に person が既に追従していれば、そのままの位置/向きでOK。
-    // 念のため、部屋の外に出ていないよう clamp しておく
     if (this._attachedPerson) {
       this.room?.clampInside?.(this._attachedPerson);
       this._attachedPerson = null;
@@ -139,7 +163,9 @@ export class WalkMode {
   }
 
   update(dt) {
-    if (!this.enabled || !this.controls.isLocked) return;
+    if (!this.enabled) return;
+    // PC: PointerLock 必須。モバイル: チェック不要
+    if (!this.isTouch && !this.controls.isLocked) return;
     const speed = 2.5; // m/s（歩く速度）
     const dist = speed * Math.min(dt, 0.1);
 
@@ -149,6 +175,12 @@ export class WalkMode {
     if (this.keys.back)    fz += 1;
     if (this.keys.left)    fx -= 1;
     if (this.keys.right)   fx += 1;
+    // モバイル: 仮想ジョイスティックからも入力
+    if (this.joystick) {
+      const jv = this.joystick.getVector();
+      fx += jv.x;
+      fz += jv.y; // ジョイスティック上方向は dy<0 = vec.y<0 = 前進
+    }
     const len = Math.hypot(fx, fz);
     if (len > 0) { fx /= len; fz /= len; }
 
@@ -212,6 +244,35 @@ export class WalkMode {
     const cam = this.camera.position;
     const tmpBox = new THREE.Box3();
 
+    // 「通り抜け窓枠と重なる内壁」のうち、現在プレイヤーが窓枠の幅(長辺)レーン内にいる
+    // 壁を通過可能にする。深さ(壁法線)方向は制限しない=壁の厚みに関係なく通り抜けられる。
+    const PAD_LANE = 0.10;
+    const passableWalls = new Set();
+    for (const pw of this.furnitureList) {
+      if (pw.userData?.furnitureType !== 'passWindow') continue;
+      pw.updateWorldMatrix(true, true);
+      const pwBox = new THREE.Box3().setFromObject(pw);
+      const sx = pwBox.max.x - pwBox.min.x;
+      const sz = pwBox.max.z - pwBox.min.z;
+      let inLane;
+      if (sx >= sz) {
+        // 長辺=X 軸: プレイヤーの X が窓枠の X 範囲内ならレーン内
+        inLane = cam.x >= pwBox.min.x - PAD_LANE && cam.x <= pwBox.max.x + PAD_LANE;
+      } else {
+        inLane = cam.z >= pwBox.min.z - PAD_LANE && cam.z <= pwBox.max.z + PAD_LANE;
+      }
+      if (!inLane) continue;
+      // この窓枠と XZ で重なる内壁を「通過可能」に追加
+      for (const w of this.furnitureList) {
+        if (w.userData?.furnitureType !== 'wall') continue;
+        w.updateWorldMatrix(true, true);
+        const wBox = new THREE.Box3().setFromObject(w);
+        const xOverlap = wBox.max.x > pwBox.min.x && wBox.min.x < pwBox.max.x;
+        const zOverlap = wBox.max.z > pwBox.min.z && wBox.min.z < pwBox.max.z;
+        if (xOverlap && zOverlap) passableWalls.add(w);
+      }
+    }
+
     for (let pass = 0; pass < 3; pass++) {
       let pushed = false;
       for (const obj of this.furnitureList) {
@@ -219,6 +280,8 @@ export class WalkMode {
         if (obj.userData.skipClamp) continue;
         // 自分自身(憑依中のアバター)は衝突対象外
         if (obj === this._attachedPerson) continue;
+        // 窓枠レーン内にいるとき、その窓枠と重なる内壁は通過可能
+        if (passableWalls.has(obj)) continue;
         obj.updateWorldMatrix(true, true);
         tmpBox.setFromObject(obj);
         // Y 方向でプレイヤー身体の範囲と重なっていなければスキップ

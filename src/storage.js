@@ -18,6 +18,7 @@ export function saveLayout(room, furnitureList) {
       floor: room.currentFloor,
       wallColor,
       wallColorOverrides: { ...room.wallColorOverrides },
+      wallExpand: { ...room.wallExpand },
       ceilingColor: '#' + room.ceilingMaterial.color.getHexString(),
       ceilingVisible: room.ceiling.visible,
     },

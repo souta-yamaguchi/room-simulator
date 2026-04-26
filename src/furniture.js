@@ -36,6 +36,9 @@ export const FURNITURE_PRESETS = {
   rug_floral:   { label: 'ラグ(花柄)',   size: [2.0, 0.01, 2.5] },
   rug_nordic:   { label: 'ラグ(北欧)',   size: [2.0, 0.01, 2.5] },
   rug_round:    { label: 'カーペット(円形)', size: [1.8, 0.015, 1.8] },
+  rug_patchwork:{ label: 'ラグ(パッチワーク)', size: [2.0, 0.012, 1.4] },
+  poangChair:   { label: 'ラウンジチェア', size: [0.66, 0.86, 0.64] },
+  roundSideTable:{ label: '丸サイドテーブル', size: [0.58, 0.42, 0.58] },
   curtain:      { label: 'カーテン',     size: [1.6, 2.2, 0.1] },
   painting:     { label: '絵画',         size: [0.6, 0.4, 0.04] },
   laptop: { label: 'ノートPC',       size: [0.35, 0.02, 0.25] },
@@ -53,6 +56,7 @@ export const DESIGN_PRESETS = {
   door2:      { label: 'ドア2(白)',  size: [1.0, 2.0, 0.1] },
   door3:      { label: 'ドア3(ガラス)', size: [1.0, 2.0, 0.1] },
   window:     { label: '窓',         size: [1.2, 1.0, 0.1] },
+  passWindow: { label: '窓枠(通り抜け)', size: [1.6, 2.1, 0.1] },
   trackLight: { label: 'ダクトレール', size: [2.0, 0.1, 0.08] },
   floatShelf: { label: '壁掛け棚',    size: [1.2, 0.05, 0.28] },
   spawnPoint: { label: '訪問者スポーン地点', size: [0.4, 0.2, 0.4] },
@@ -696,6 +700,270 @@ function buildRugRound() {
   return group;
 }
 
+// ---- 写真の部屋を再現するための家具: ラウンジチェア / 丸サイドテーブル / パッチワークラグ ----
+
+// パッチワーク柄キャンバスを作る。タイルは均等サイズの 5×3 グリッドで、
+// 各タイルの色は写真と同じ4色パレットからランダムで選ぶ。
+const PATCHWORK_PALETTE = ['#e8e0d0', '#3a3a3a', '#9c9c9c', '#dcc060'];
+const PATCHWORK_COLS = 5;
+const PATCHWORK_ROWS = 3;
+
+function makePatchworkRugTexture() {
+  const c = document.createElement('canvas');
+  c.width = 500; c.height = 300; // 5:3 比率 (2.0m × 1.4m に近い)
+  const ctx = c.getContext('2d');
+  const tw = c.width / PATCHWORK_COLS;
+  const th = c.height / PATCHWORK_ROWS;
+  for (let r = 0; r < PATCHWORK_ROWS; r++) {
+    for (let col = 0; col < PATCHWORK_COLS; col++) {
+      const color = PATCHWORK_PALETTE[Math.floor(Math.random() * PATCHWORK_PALETTE.length)];
+      ctx.fillStyle = color;
+      ctx.fillRect(col * tw, r * th, tw, th);
+    }
+  }
+  // 起毛ノイズ
+  for (let i = 0; i < 16000; i++) {
+    ctx.fillStyle = `rgba(0,0,0,${0.04 + Math.random() * 0.05})`;
+    ctx.fillRect(Math.random() * c.width, Math.random() * c.height, 1, 1);
+  }
+  for (let i = 0; i < 8000; i++) {
+    ctx.fillStyle = `rgba(255,255,255,${0.03 + Math.random() * 0.04})`;
+    ctx.fillRect(Math.random() * c.width, Math.random() * c.height, 1, 1);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function buildRugPatchwork() {
+  const mat = new THREE.MeshStandardMaterial({
+    map: makePatchworkRugTexture(),
+    roughness: 0.95,
+    metalness: 0,
+  });
+  const group = new THREE.Group();
+  const plane = makePart(2.0, 0.012, 1.4, mat, 0);
+  plane.position.y = 0.006;
+  plane.castShadow = false;
+  plane.receiveShadow = true;
+  // 複製時にテクスチャを差し替える対象として印を付ける
+  plane.userData.isPatchworkSurface = true;
+  group.add(plane);
+  return group;
+}
+
+// 複製時に「内容」をランダム化する家具向けのフック。
+// 現状は rug_patchwork のタイル色を複製ごとに振り直すために使う。
+export function randomizeFurnitureContent(obj) {
+  if (!obj?.userData) return;
+  // ユーザが色オーバーライドを当てている場合は手を入れない
+  if (obj.userData.colorOverride) return;
+  if (obj.userData.furnitureType === 'rug_patchwork') {
+    obj.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      if (!child.userData?.isPatchworkSurface) return;
+      const newTex = makePatchworkRugTexture();
+      // 複製時にマテリアルもクローン済みなので map だけ差し替えればOK
+      const oldMap = child.material.map;
+      child.material.map = newTex;
+      child.material.needsUpdate = true;
+      if (oldMap) oldMap.dispose();
+    });
+  }
+}
+
+// 北欧ミッドセンチュリー風ラウンジチェア (Finn Juhl / Fredrik Kayser 系)
+// 4本脚 + 有機的な曲線アームレスト + 上に向かって少し広がる台形の背もたれ。
+function buildPoangChair() {
+  const group = new THREE.Group();
+  const wood = woodMat('#6b432a', [1, 1]);
+  const cushion = fabricMat('#9c9ca0', [2, 2]);
+
+  // テーパー脚生成
+  const makeLeg = (botX, botZ, topX, topZ, topY, botR, topR) => {
+    const dx = topX - botX, dy = topY, dz = topZ - botZ;
+    const len = Math.hypot(dx, dy, dz);
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(topR, botR, len, 14), wood,
+    );
+    leg.position.set((botX + topX) / 2, topY / 2, (botZ + topZ) / 2);
+    leg.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(dx, dy, dz).normalize(),
+    );
+    leg.castShadow = true;
+    leg.receiveShadow = true;
+    return leg;
+  };
+
+  // 比率: 座面トップ 38cm / 背もたれトップ 80cm
+  const SEAT_TOP_Y = 0.38;
+  const BACK_TOP_Y = 0.80;
+
+  // 前脚: 床→座面下まで(30cm)
+  group.add(makeLeg(-0.30,  0.27, -0.26,  0.25, 0.30, 0.022, 0.020));
+  group.add(makeLeg( 0.30,  0.27,  0.26,  0.25, 0.30, 0.022, 0.020));
+  // 後脚: 床→背もたれ上まで(80cm)、上端はわずかに後傾
+  group.add(makeLeg(-0.30, -0.26, -0.26, -0.30, BACK_TOP_Y, 0.022, 0.018));
+  group.add(makeLeg( 0.30, -0.26,  0.26, -0.30, BACK_TOP_Y, 0.022, 0.018));
+
+  // アームレスト: 前脚上端 (y=0.30) から後脚途中まで滑らかにカーブ、最高点 ~50cm
+  const buildArmrest = (flip) => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.30,  0.25),
+      new THREE.Vector3(0, 0.36,  0.16),
+      new THREE.Vector3(0, 0.42,  0.02),
+      new THREE.Vector3(0, 0.46, -0.10),
+      new THREE.Vector3(0, 0.50, -0.22),
+    ], false, 'catmullrom', 0.4);
+    const cross = new THREE.Shape();
+    const SEG = 20;
+    for (let i = 0; i <= SEG; i++) {
+      const a = (i / SEG) * Math.PI * 2;
+      const cx = Math.cos(a) * 0.025;
+      const cy = Math.sin(a) * 0.012;
+      if (i === 0) cross.moveTo(cx, cy);
+      else cross.lineTo(cx, cy);
+    }
+    cross.closePath();
+    const geom = new THREE.ExtrudeGeometry(cross, {
+      extrudePath: curve, steps: 60, bevelEnabled: false,
+    });
+    const mesh = new THREE.Mesh(geom, wood);
+    mesh.position.x = 0.26 * flip;
+    mesh.castShadow = true;
+    return mesh;
+  };
+  group.add(buildArmrest(-1));
+  group.add(buildArmrest( 1));
+
+  // スカート (座面下に 4 辺の角材枠、座面ボトム=30cm の少し下)
+  const SKIRT_Y = 0.27;
+  const skirtFront = makePart(0.50, 0.022, 0.025, wood, 0.005);
+  skirtFront.position.set(0, SKIRT_Y,  0.26);
+  group.add(skirtFront);
+  const skirtBack = makePart(0.50, 0.022, 0.025, wood, 0.005);
+  skirtBack.position.set(0, SKIRT_Y, -0.26);
+  group.add(skirtBack);
+  const skirtL = makePart(0.025, 0.022, 0.50, wood, 0.005);
+  skirtL.position.set(-0.26, SKIRT_Y, 0);
+  group.add(skirtL);
+  const skirtR = makePart(0.025, 0.022, 0.50, wood, 0.005);
+  skirtR.position.set( 0.26, SKIRT_Y, 0);
+  group.add(skirtR);
+
+  // 座面クッション (8cm 厚): 中心 y=0.34, トップ y=0.38
+  const seat = makePart(0.48, 0.08, 0.48, cushion, 0.035);
+  seat.position.set(0, 0.34, 0.01);
+  seat.castShadow = true;
+  group.add(seat);
+
+  // 背もたれクッション: 上に向かって少し広がる台形 + 角丸 + 後傾 ~10°
+  // (Shape を作って Extrude し、ベベルで角丸を表現)
+  const makeTrapezoidShape = (bottomW, topW, height, r) => {
+    const hb = bottomW / 2, ht = topW / 2;
+    const hh = height / 2;
+    const s = new THREE.Shape();
+    // 下辺 → 右下角 → 右斜め辺 → 右上角 → 上辺 → 左上角 → 左斜め辺 → 左下角 → 戻る
+    s.moveTo(-hb + r, -hh);
+    s.lineTo(hb - r, -hh);
+    s.quadraticCurveTo(hb, -hh, hb, -hh + r);
+    s.lineTo(ht, hh - r);
+    s.quadraticCurveTo(ht, hh, ht - r, hh);
+    s.lineTo(-ht + r, hh);
+    s.quadraticCurveTo(-ht, hh, -ht, hh - r);
+    s.lineTo(-hb, -hh + r);
+    s.quadraticCurveTo(-hb, -hh, -hb + r, -hh);
+    return s;
+  };
+  const backShape = makeTrapezoidShape(0.44, 0.50, 0.40, 0.05);
+  const backGeom = new THREE.ExtrudeGeometry(backShape, {
+    depth: 0.10,
+    bevelEnabled: true,
+    bevelThickness: 0.018,
+    bevelSize: 0.018,
+    bevelSegments: 3,
+  });
+  backGeom.translate(0, 0, -0.05); // 厚みを Z 中央に揃える
+  const back = new THREE.Mesh(backGeom, cushion);
+  // 後傾 18° (=−0.314rad)。Three.js では rotation.x が負のとき +Y軸が −Z方向へ回る
+  // = 「背もたれの上端が後ろ側(座る人から遠ざかる方向)へ倒れる」
+  // 中心 y=0.60, 中心 z=-0.238 → ボトム y≈0.41/z≈-0.176 (座面のやや上・前方)
+  //                              トップ y≈0.79/z≈-0.30 (後脚最上端と揃う)
+  back.position.set(0, 0.60, -0.238);
+  back.rotation.x = -0.314;
+  back.castShadow = true;
+  group.add(back);
+
+  return group;
+}
+
+// 写真の丸テーブル: マーブル風グレー天板 + 黒い3本脚(やや外側に開く)
+function buildRoundSideTable() {
+  const group = new THREE.Group();
+  const topMat = new THREE.MeshStandardMaterial({
+    color: 0xc8c6c2,
+    roughness: 0.45,
+    metalness: 0.1,
+  });
+  const edgeMat = new THREE.MeshStandardMaterial({
+    color: 0x2a2a2a,
+    roughness: 0.45,
+    metalness: 0.4,
+  });
+  const legMat = new THREE.MeshStandardMaterial({
+    color: 0x1c1c1c,
+    roughness: 0.55,
+    metalness: 0.25,
+  });
+
+  // 天板 (シリンダー)
+  const top = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.29, 0.29, 0.035, 48), topMat,
+  );
+  top.position.y = 0.41;
+  top.castShadow = true;
+  top.receiveShadow = true;
+  group.add(top);
+  // 天板の側面アクセント
+  const edge = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.292, 0.292, 0.012, 48), edgeMat,
+  );
+  edge.position.y = 0.391;
+  group.add(edge);
+
+  // 3本脚: 上(R=0.06)→下(R=0.24) で開く
+  const TOP_R = 0.06, BOT_R = 0.24;
+  const TOP_Y = 0.395, BOT_Y = 0.0;
+  const LEG_LEN = Math.hypot(BOT_R - TOP_R, TOP_Y - BOT_Y);
+  for (let i = 0; i < 3; i++) {
+    const angle = (i / 3) * Math.PI * 2 + Math.PI / 6;
+    const tx = Math.cos(angle) * TOP_R, tz = Math.sin(angle) * TOP_R;
+    const bx = Math.cos(angle) * BOT_R, bz = Math.sin(angle) * BOT_R;
+    const cx = (tx + bx) / 2, cy = (TOP_Y + BOT_Y) / 2, cz = (tz + bz) / 2;
+
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.015, 0.020, LEG_LEN, 12), legMat,
+    );
+    leg.position.set(cx, cy, cz);
+    // シリンダーの+Y軸を上端→下端方向に揃える(上端から下端を指す方向の逆)
+    const dir = new THREE.Vector3(tx - bx, TOP_Y - BOT_Y, tz - bz).normalize();
+    leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    leg.castShadow = true;
+    leg.receiveShadow = true;
+    group.add(leg);
+  }
+  // 脚のリング(中ほどで脚同士を繋ぐ細いリング: 構造的なアクセント)
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.16, 0.008, 8, 32), legMat,
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.13;
+  group.add(ring);
+
+  return group;
+}
+
 function buildCurtain() {
   const group = new THREE.Group();
   const rodMat = metalMat(0x666666);
@@ -1165,8 +1433,9 @@ function buildWall() {
   group.add(wall);
 
   // 見分けやすいように床近くに薄い巾木を付ける
+  // (壁本体と同じ XZ サイズに収め、AABB(当たり判定)が下端だけ膨らまないようにする)
   const baseMat = new THREE.MeshStandardMaterial({ color: 0x3a2c1e, roughness: 0.7 });
-  const baseA = makePart(3.02, 0.08, 0.11, baseMat, 0);
+  const baseA = makePart(3.0, 0.08, 0.1, baseMat, 0);
   baseA.position.y = 0.04;
   group.add(baseA);
 
@@ -1373,6 +1642,77 @@ function buildWindow() {
   group.userData.exitLink = 'https://oyoyo.co.jp/companyinfo/';
   group.userData.exitLabel = '会社情報';
   group.userData.requiresOpenCurtain = true;
+
+  return group;
+}
+
+// 通り抜け可能な窓枠(掃き出し窓 / スライディンググラスドア風)
+// プレイヤーは通過可能(createFurniture で skipClamp=true を付与)。
+function buildPassWindow() {
+  const group = new THREE.Group();
+  const frameMat = matteMat(0xf3f2ee);
+  const railMat = new THREE.MeshStandardMaterial({
+    color: 0xb8b8b8, roughness: 0.4, metalness: 0.6,
+  });
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0xc4dceb,
+    transparent: true,
+    opacity: 0.22,
+    roughness: 0.05,
+    metalness: 0,
+    transmission: 0.92,
+    thickness: 0.02,
+    side: THREE.DoubleSide,
+  });
+  const handleMat = metalMat(0x9e9e9e);
+
+  const W = 1.6;       // 開口幅
+  const H = 2.1;       // 全高(床から天井近くまで)
+  const frameT = 0.05; // 枠の太さ
+  const D = 0.08;      // 奥行き
+
+  // 上枠
+  const top = makePart(W + frameT * 2, frameT, D, frameMat, 0.005);
+  top.position.set(0, H - frameT / 2, 0);
+  group.add(top);
+  // 下レール(薄い金属レール)
+  const bot = makePart(W + frameT * 2, 0.025, D, railMat, 0);
+  bot.position.set(0, 0.0125, 0);
+  group.add(bot);
+  // 左右枠
+  const sideL = makePart(frameT, H, D, frameMat, 0.005);
+  sideL.position.set(-(W / 2 + frameT / 2), H / 2, 0);
+  group.add(sideL);
+  const sideR = makePart(frameT, H, D, frameMat, 0.005);
+  sideR.position.set(W / 2 + frameT / 2, H / 2, 0);
+  group.add(sideR);
+  // 中央の縦框(2枚パネルの境目)
+  const midbar = makePart(0.04, H - 0.06, D * 0.7, frameMat, 0);
+  midbar.position.set(0, (H - 0.06) / 2 + 0.025, 0);
+  group.add(midbar);
+
+  // ガラス2枚(左右)
+  const paneW = W / 2 - 0.04;
+  const paneH = H - 0.08;
+  const paneZ = 0; // 枠の中心と同一平面
+  const pane1 = makePart(paneW, paneH, 0.008, glassMat, 0);
+  pane1.position.set(-W / 4 - 0.005, paneH / 2 + 0.03, paneZ);
+  pane1.castShadow = false;
+  pane1.userData.noTint = true; // 色変更時もガラスは保護
+  group.add(pane1);
+  const pane2 = makePart(paneW, paneH, 0.008, glassMat, 0);
+  pane2.position.set(W / 4 + 0.005, paneH / 2 + 0.03, paneZ);
+  pane2.castShadow = false;
+  pane2.userData.noTint = true;
+  group.add(pane2);
+
+  // 取っ手(各パネル中央付近)
+  const handle1 = makePart(0.012, 0.18, 0.022, handleMat, 0.005);
+  handle1.position.set(-0.06, H * 0.45, D * 0.45);
+  group.add(handle1);
+  const handle2 = makePart(0.012, 0.18, 0.022, handleMat, 0.005);
+  handle2.position.set(0.06, H * 0.45, D * 0.45);
+  group.add(handle2);
 
   return group;
 }
@@ -2895,6 +3235,9 @@ const BUILDERS = {
   rug_floral: buildRugFloral,
   rug_nordic: buildRugNordic,
   rug_round: buildRugRound,
+  rug_patchwork: buildRugPatchwork,
+  poangChair: buildPoangChair,
+  roundSideTable: buildRoundSideTable,
   curtain: buildCurtain,
   painting: buildPainting,
   laptop: buildLaptop,
@@ -2907,6 +3250,7 @@ const BUILDERS = {
   door2: buildDoor2,
   door3: buildDoor3,
   window: buildWindow,
+  passWindow: buildPassWindow,
   wall: buildWall,
   trackLight: buildTrackLight,
   floatShelf: buildFloatShelf,
@@ -2928,7 +3272,11 @@ export function createFurniture(type) {
       type === 'whiteboard' || type === 'book' ||
       type === 'aircon' || type === 'lamp' ||
       type === 'curtain' || type === 'painting' ||
-      type === 'mirror' || type === 'spawnPoint') {
+      type === 'mirror' || type === 'spawnPoint' ||
+      type === 'passWindow' ||
+      // ラグ類は床に置く平らな飾り。プレイヤー/ペットの当たり判定対象外。
+      type === 'rug' || type === 'rug_geo' || type === 'rug_floral' ||
+      type === 'rug_nordic' || type === 'rug_round' || type === 'rug_patchwork') {
     group.userData.skipClamp = true;
   }
   return group;
