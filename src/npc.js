@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { IS_TOUCH } from './mobileControls.js';
 
 // NPCに話しかけたときの吹き出し管理。
 // DOMオーバーレイ方式: 3Dの頭上ワールド座標を毎フレーム画面座標へ射影して div を貼る。
@@ -145,10 +146,12 @@ let vnState = null; // { npc, lines, index, wrap }
 
 function createVnBox() {
   const wrap = document.createElement('div');
+  // モバイルは下にジョイスティックがあるので、ダイアログは画面上部に出す。
+  const positionStyle = IS_TOUCH ? 'top:8%' : 'bottom:5%';
   wrap.style.cssText = [
     'position:absolute',
     'left:50%',
-    'bottom:5%',
+    positionStyle,
     'transform:translateX(-50%)',
     'width:min(82%,820px)',
     'pointer-events:none',
