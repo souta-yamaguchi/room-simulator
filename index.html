@@ -123,9 +123,8 @@
         #sidebar { display: none !important; }
         /* PC専用ショートカット説明 (マウス:カメラ/T移動 R回転...) はモバイルでは不要 */
         #hint { display: none !important; }
-        /* walk indicator はモバイルでも表示 (一人称視点中の判別に必要) */
-        #walk-indicator { font-size: 11px; padding: 6px 10px; top: 8px; }
-        #walk-indicator small { display: none; }
+        /* "一人称視点中" 表示もモバイルでは不要 (画面が狭くて邪魔) */
+        #walk-indicator { display: none !important; }
         #exit-prompt { bottom: 28% !important; font-size: 14px !important; padding: 10px 20px !important; }
         #exit-prompt-label { font-size: 14px; }
       }
