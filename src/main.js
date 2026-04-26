@@ -32,9 +32,8 @@ function setStatus(msg) {
 
 const scene = new THREE.Scene();
 // 空一面の背景: 窓やドア(透過するカーテン/ガラス)から外を見ると、
-// 天空に浮かぶ部屋のように空が広がる
-// モバイルは VRAM とフィルレート節約のため低解像度版
-scene.background = makeSkyTexture({ lowRes: IS_TOUCH });
+// 天空に浮かぶ部屋のように空が広がる。モバイルでもフル解像度で表示する。
+scene.background = makeSkyTexture();
 
 const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 200);
 camera.position.set(5, 4, 6);
