@@ -519,13 +519,15 @@ export function makePatternWallpaperTexture(baseHex = '#e8d9e8', motifHex = '#b8
   return finalize(canvas);
 }
 
-// 360°空テクスチャ (equirectangular, 2048×1024)。
-// 解像度を上げず "それっぽい" 青空に見せる工夫:
+// 360°空テクスチャ (equirectangular)。
+// PC は 2048×1024 / モバイルは 1024×512 で VRAM とフィルレートを節約。
 // - 地平線(=窓越しの水平視線が当たる帯)を中間の青にして白っぽさを排除
 // - 雲は地平線帯 (canvas y=0.35〜0.65) に集中させる(見える場所に集める)
 // - 1雲あたり 8〜12 個のソフトブロブを横長に重ね、ふわふわ感を増す
-export function makeSkyTexture() {
-  const W = 2048, H = 1024;
+export function makeSkyTexture(opts = {}) {
+  const lowRes = opts.lowRes === true;
+  const W = lowRes ? 1024 : 2048;
+  const H = lowRes ? 512 : 1024;
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');

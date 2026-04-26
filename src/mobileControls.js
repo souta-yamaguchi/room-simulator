@@ -18,8 +18,8 @@ export class VirtualJoystick {
     this.centerY = 0;
     this.touchId = null;
     this.vec = { x: 0, y: 0 };
-    this.maxR = 45; // 中心から最大ドラッグ半径(px)
-    this.deadZone = 0.15; // 小さな動きは無視
+    this.maxR = 55; // 中心から最大ドラッグ半径(px) - 親指でフルストロークしやすく
+    this.deadZone = 0.18; // 小さな動きは無視 (誤入力をやや厳しめに排除)
 
     this._onStart = this._onStart.bind(this);
     this._onMove  = this._onMove.bind(this);
@@ -108,7 +108,7 @@ export class TouchCamera {
     this.tapStartX = 0; this.tapStartY = 0;
     this.tapStartTime = 0;
     this.tapMoved = false;
-    this.sensitivity = 0.0028; // ラジアン/ピクセル
+    this.sensitivity = 0.0040; // ラジアン/ピクセル(以前 0.0028 → やや高めにして指の小移動でも視点が回せる)
 
     this._onStart = this._onStart.bind(this);
     this._onMove  = this._onMove.bind(this);

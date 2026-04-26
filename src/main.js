@@ -33,7 +33,8 @@ function setStatus(msg) {
 const scene = new THREE.Scene();
 // 空一面の背景: 窓やドア(透過するカーテン/ガラス)から外を見ると、
 // 天空に浮かぶ部屋のように空が広がる
-scene.background = makeSkyTexture();
+// モバイルは VRAM とフィルレート節約のため低解像度版
+scene.background = makeSkyTexture({ lowRes: IS_TOUCH });
 
 const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 200);
 camera.position.set(5, 4, 6);
@@ -234,9 +235,17 @@ function resize() {
   renderer.setSize(w, h, false);
   renderer.domElement.style.width = w + 'px';
   renderer.domElement.style.height = h + 'px';
-  // 高DPRディスプレイで重くなりすぎないよう 1.5 を上限に
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  // モバイルは pixelRatio 1.0 でフィルレートを大きく節約。PC は 1.5 まで。
+  const dprCap = IS_TOUCH ? 1.0 : 1.5;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, dprCap));
   camera.aspect = w / h;
+  // 縦長画面(スマホ縦持ち) は FOV を広めにして視野感を補う。
+  // aspect < 0.8 (細長い縦) → 70°、それ以上 → 55°(PC) or タブレット相当 60°
+  if (IS_TOUCH) {
+    camera.fov = camera.aspect < 0.8 ? 70 : 60;
+  } else {
+    camera.fov = 55;
+  }
   camera.updateProjectionMatrix();
 }
 resize();
