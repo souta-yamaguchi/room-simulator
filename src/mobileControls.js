@@ -108,6 +108,7 @@ export class TouchCamera {
     this.tapStartX = 0; this.tapStartY = 0;
     this.tapStartTime = 0;
     this.tapMoved = false;
+    this.justStarted = false; // touchstart 直後の最初の move を「ゼロ delta 扱い」にするためのフラグ
     this.sensitivity = 0.0040; // ラジアン/ピクセル(以前 0.0028 → やや高めにして指の小移動でも視点が回せる)
 
     this._onStart = this._onStart.bind(this);
@@ -151,6 +152,7 @@ export class TouchCamera {
     this.tapStartX = t.clientX; this.tapStartY = t.clientY;
     this.tapStartTime = performance.now();
     this.tapMoved = false;
+    this.justStarted = true; // 最初の move は回転させずキャリブレーションだけ
     e.preventDefault();
   }
 
@@ -161,10 +163,15 @@ export class TouchCamera {
       const dx = t.clientX - this.lastX;
       const dy = t.clientY - this.lastY;
       this.lastX = t.clientX; this.lastY = t.clientY;
-      // 異常に大きい初動 delta は無視 (touchstart を取りこぼした場合などに
-      // いきなり大回転するのを防ぐ)。通常の高速スワイプでも1フレームあたり
-      // 60〜80px 程度なので、それ以上は再キャリブレーション扱い。
-      const MAX_DELTA = 80;
+      // touchstart 直後の最初の move は適用しない (位置記録だけ)。
+      // これで「触れた瞬間に視点ジャンプ」を確実に防ぐ。
+      if (this.justStarted) {
+        this.justStarted = false;
+        e.preventDefault();
+        break;
+      }
+      // 念のため: 異常に大きい delta も無視 (60FPS 高速スワイプ上限 ~30px)
+      const MAX_DELTA = 30;
       if (Math.abs(dx) > MAX_DELTA || Math.abs(dy) > MAX_DELTA) {
         e.preventDefault();
         break;
