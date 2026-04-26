@@ -125,7 +125,12 @@
         #hint { display: none !important; }
         /* "一人称視点中" 表示もモバイルでは不要 (画面が狭くて邪魔) */
         #walk-indicator { display: none !important; }
-        #exit-prompt { bottom: 28% !important; font-size: 14px !important; padding: 10px 20px !important; }
+        /* モバイルは exit-prompt 自体をタップしてリンク先に飛べるようにする */
+        #exit-prompt {
+          bottom: 28% !important; font-size: 14px !important; padding: 10px 20px !important;
+          pointer-events: auto !important;
+          cursor: pointer;
+        }
         #exit-prompt-label { font-size: 14px; }
       }
     </style>

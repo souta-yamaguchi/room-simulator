@@ -485,6 +485,18 @@ renderer.domElement.addEventListener('mousedown', () => {
   if (!walkMode.enabled) return;
   if (activeExitLink) triggerExitIfAvailable();
 }, true);
+// モバイル: exit-prompt 自体をタップしたときも退出を発火
+exitPrompt?.addEventListener('click', () => {
+  if (!walkMode.enabled) return;
+  if (activeExitLink) triggerExitIfAvailable();
+});
+exitPrompt?.addEventListener('touchend', (e) => {
+  if (!walkMode.enabled) return;
+  if (activeExitLink) {
+    e.preventDefault();
+    triggerExitIfAvailable();
+  }
+});
 
 let lastTime = performance.now();
 let monitorFrameCounter = 0;
