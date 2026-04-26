@@ -1948,19 +1948,16 @@ function buildMirror() {
   const W = 0.5, H = 1.2, D = 0.03;
   const frameT = 0.04;
 
-  // モバイルでは Reflector の毎フレーム再描画が重いため、単純な反射しない平面に置き換える。
-  // PC では 256px 解像度の本物の鏡を使う。
+  // 反射する鏡は両プラットフォームで使うが、モバイルは 128px に下げて負荷削減。
+  // (PC: 256px / モバイル: 128px)
   const mirrorGeom = new THREE.PlaneGeometry(W, H);
-  const mirror = IS_TOUCH
-    ? new THREE.Mesh(mirrorGeom, new THREE.MeshStandardMaterial({
-        color: 0xc8d2db, roughness: 0.15, metalness: 0.85,
-      }))
-    : new Reflector(mirrorGeom, {
-        clipBias: 0.003,
-        textureWidth: 256,
-        textureHeight: Math.round(256 * (H / W)),
-        color: 0xe6ecf0,
-      });
+  const mirrorRes = IS_TOUCH ? 128 : 256;
+  const mirror = new Reflector(mirrorGeom, {
+    clipBias: 0.003,
+    textureWidth: mirrorRes,
+    textureHeight: Math.round(mirrorRes * (H / W)),
+    color: 0xe6ecf0,
+  });
   mirror.position.set(0, H / 2, D / 2 + 0.001);
   mirror.userData.noTint = true;
 
