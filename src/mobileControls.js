@@ -161,6 +161,14 @@ export class TouchCamera {
       const dx = t.clientX - this.lastX;
       const dy = t.clientY - this.lastY;
       this.lastX = t.clientX; this.lastY = t.clientY;
+      // 異常に大きい初動 delta は無視 (touchstart を取りこぼした場合などに
+      // いきなり大回転するのを防ぐ)。通常の高速スワイプでも1フレームあたり
+      // 60〜80px 程度なので、それ以上は再キャリブレーション扱い。
+      const MAX_DELTA = 80;
+      if (Math.abs(dx) > MAX_DELTA || Math.abs(dy) > MAX_DELTA) {
+        e.preventDefault();
+        break;
+      }
       this.euler.y -= dx * this.sensitivity;
       this.euler.x -= dy * this.sensitivity;
       const MAX_PITCH = Math.PI / 2 * 0.98;
