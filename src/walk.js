@@ -48,18 +48,24 @@ export class WalkMode {
       }
       this.touchCamera = new TouchCamera(camera, renderer.domElement, {
         getJoystickRect: () => js?.getBoundingClientRect() ?? null,
-        onTap: () => this._onClick(),
+        onTap: (x, y) => this._onClick(null, x, y),
       });
     }
   }
 
-  // 一人称視点でのマウスクリック: 画面中央からレイキャスト
+  // 一人称視点でのクリック/タップ: NDC 座標からレイキャスト
   // 優先順位: インタラクティブ家具 > NPC/ペット > 空クリック
-  // (モバイル時は controls.isLocked==false でも呼ばれる)
-  _onClick(e) {
+  // PC (PointerLock 中) は画面中央からのレイ。モバイルは tap の実座標から。
+  _onClick(e, tapX, tapY) {
     if (!this.enabled) return;
     if (!this.isTouch && !this.controls.isLocked) return;
-    this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera);
+    let ndcX = 0, ndcY = 0;
+    if (typeof tapX === 'number' && typeof tapY === 'number') {
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      ndcX = ((tapX - rect.left) / rect.width) * 2 - 1;
+      ndcY = -((tapY - rect.top) / rect.height) * 2 + 1;
+    }
+    this._raycaster.setFromCamera({ x: ndcX, y: ndcY }, this.camera);
     const hits = this._raycaster.intersectObjects(this.furnitureList || [], true);
     if (hits.length > 0) {
       let target = hits[0].object;

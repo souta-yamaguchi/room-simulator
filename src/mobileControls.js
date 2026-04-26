@@ -201,7 +201,8 @@ export class TouchCamera {
       if (t.identifier !== this.dragId) continue;
       const dt = performance.now() - this.tapStartTime;
       // 短押し(<250ms) + あまり動いてない(tapMoved=false) ならタップ扱い
-      if (!this.tapMoved && dt < 250) this.onTap?.();
+      // 実際のタップ座標も渡してレイキャスト元に使えるようにする
+      if (!this.tapMoved && dt < 250) this.onTap?.(t.clientX, t.clientY);
       this.dragId = null;
       break;
     }
