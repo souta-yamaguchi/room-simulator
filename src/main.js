@@ -235,8 +235,8 @@ function resize() {
   renderer.setSize(w, h, false);
   renderer.domElement.style.width = w + 'px';
   renderer.domElement.style.height = h + 'px';
-  // モバイルは pixelRatio 1.0 でフィルレートを大きく節約。PC は 1.5 まで。
-  const dprCap = IS_TOUCH ? 1.0 : 1.5;
+  // モバイルも 1.5 で画質確保(端末によっては多少重くなる)
+  const dprCap = 1.5;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, dprCap));
   camera.aspect = w / h;
   // 縦長画面(スマホ縦持ち) は FOV を広めにして視野感を補う。
