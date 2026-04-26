@@ -9,7 +9,8 @@
       /* 初期ロード/戻るボタン時のチラつきを防ぐため、デフォルトは非表示 → JS側で ready クラス付与でフェードイン */
       body { opacity: 0; transition: opacity 0.25s ease; }
       body.ready { opacity: 1; }
-      #app { display: flex; height: 100vh; }
+      /* 100vh は iOS Safari で URL バー裏まで含む → 100dvh で「実際に見えてる高さ」に合わせる */
+      #app { display: flex; height: 100vh; height: 100dvh; }
       #sidebar { width: 280px; min-width: 280px; flex-shrink: 0; background: #22252b; padding: 16px; box-sizing: border-box; overflow-y: auto; border-right: 1px solid #333; }
       #sidebar h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #8aa; margin: 16px 0 8px; }
       #sidebar h2:first-child { margin-top: 0; }
@@ -45,7 +46,9 @@
       /* ---- モバイル用UI ---- */
       #mobile-joystick {
         position: absolute;
-        left: 24px; bottom: 24px;
+        left: 24px;
+        /* 100dvh で URL バーは画面外。安全領域 + 32px だけ上げれば被らない */
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
         width: 150px; height: 150px;
         border-radius: 50%;
         background: rgba(30,30,40,0.35);
@@ -118,6 +121,9 @@
       /* ---- レスポンシブ (タッチデバイス or 幅 ≤ 900px) ---- */
       @media (max-width: 900px), (pointer: coarse) {
         #sidebar { display: none !important; }
+        /* PC専用ショートカット説明 (マウス:カメラ/T移動 R回転...) はモバイルでは不要 */
+        #hint { display: none !important; }
+        /* walk indicator はモバイルでも表示 (一人称視点中の判別に必要) */
         #walk-indicator { font-size: 11px; padding: 6px 10px; top: 8px; }
         #walk-indicator small { display: none; }
         #exit-prompt { bottom: 28% !important; font-size: 14px !important; padding: 10px 20px !important; }
