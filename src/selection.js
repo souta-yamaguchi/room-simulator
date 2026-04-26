@@ -57,10 +57,10 @@ export class Selector {
       if (this.transform.mode === 'translate') {
         this._snapToFurnitureEdges();
       }
-      // 内壁/通り抜け窓枠を動かしたら穴を再計算
+      // 内壁/通り抜け窓枠/窓を動かしたら穴を再計算 (内壁+外壁)
       const t = this.selected.userData?.furnitureType;
-      if (t === 'wall' || t === 'passWindow') {
-        updateWallHoles(this.furnitureList);
+      if (t === 'wall' || t === 'passWindow' || t === 'window') {
+        updateWallHoles(this.furnitureList, this.room);
       }
       if (this.boxHelper) this.boxHelper.update();
     });
@@ -298,8 +298,8 @@ export class Selector {
     if (idx >= 0) this.furnitureList.splice(idx, 1);
     this.scene.remove(obj);
     disposeObject(obj);
-    // passWindow 削除で塞がれた壁を復元、内壁削除も穴情報の整合のため再計算
-    if (t === 'wall' || t === 'passWindow') updateWallHoles(this.furnitureList);
+    // passWindow/window/内壁削除で穴情報の整合のため再計算
+    if (t === 'wall' || t === 'passWindow' || t === 'window') updateWallHoles(this.furnitureList, this.room);
     this.onChange?.();
   }
 

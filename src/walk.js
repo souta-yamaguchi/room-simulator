@@ -280,6 +280,8 @@ export class WalkMode {
         if (obj.userData.skipClamp) continue;
         // 自分自身(憑依中のアバター)は衝突対象外
         if (obj === this._attachedPerson) continue;
+        // 犬・猫は当たり判定なし(プレイヤーがすり抜けられる)
+        if (obj.userData?.isPet) continue;
         // 窓枠レーン内にいるとき、その窓枠と重なる内壁は通過可能
         if (passableWalls.has(obj)) continue;
         obj.updateWorldMatrix(true, true);

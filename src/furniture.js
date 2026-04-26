@@ -827,7 +827,7 @@ function buildPoangChair() {
     }
     cross.closePath();
     const geom = new THREE.ExtrudeGeometry(cross, {
-      extrudePath: curve, steps: 60, bevelEnabled: false,
+      extrudePath: curve, steps: 30, bevelEnabled: false,
     });
     const mesh = new THREE.Mesh(geom, wood);
     mesh.position.x = 0.26 * flip;
@@ -1546,9 +1546,10 @@ function buildDoor2() {
 function buildDoor3() {
   const group = new THREE.Group();
   const frameMat = metalMat(0xbfbfbf);
-  const glassMat = new THREE.MeshPhysicalMaterial({
+  // パフォーマンス重視: transmission を切ったシンプルな半透明ガラスに
+  const glassMat = new THREE.MeshStandardMaterial({
     color: 0xd0e0ec, roughness: 0.15, metalness: 0.2,
-    transparent: true, opacity: 0.45, transmission: 0.6,
+    transparent: true, opacity: 0.45,
     side: THREE.DoubleSide,
   });
   const handleMat = metalMat(0x9f9f9f);
@@ -1590,14 +1591,13 @@ function buildDoor3() {
 function buildWindow() {
   const group = new THREE.Group();
   const frameMat = matteMat(0xf5f2ea);
-  const glassMat = new THREE.MeshPhysicalMaterial({
+  // パフォーマンス重視: transmission(屈折)を切ってシンプルな半透明ガラスに
+  const glassMat = new THREE.MeshStandardMaterial({
     color: 0xaac8df,
     transparent: true,
-    opacity: 0.35,
-    roughness: 0.05,
+    opacity: 0.25,
+    roughness: 0.1,
     metalness: 0,
-    transmission: 0.85,
-    thickness: 0.02,
     side: THREE.DoubleSide,
   });
 
@@ -1654,16 +1654,6 @@ function buildPassWindow() {
   const railMat = new THREE.MeshStandardMaterial({
     color: 0xb8b8b8, roughness: 0.4, metalness: 0.6,
   });
-  const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0xc4dceb,
-    transparent: true,
-    opacity: 0.22,
-    roughness: 0.05,
-    metalness: 0,
-    transmission: 0.92,
-    thickness: 0.02,
-    side: THREE.DoubleSide,
-  });
   const handleMat = metalMat(0x9e9e9e);
 
   const W = 1.6;       // 開口幅
@@ -1691,22 +1681,9 @@ function buildPassWindow() {
   midbar.position.set(0, (H - 0.06) / 2 + 0.025, 0);
   group.add(midbar);
 
-  // ガラス2枚(左右)
-  const paneW = W / 2 - 0.04;
-  const paneH = H - 0.08;
-  const paneZ = 0; // 枠の中心と同一平面
-  const pane1 = makePart(paneW, paneH, 0.008, glassMat, 0);
-  pane1.position.set(-W / 4 - 0.005, paneH / 2 + 0.03, paneZ);
-  pane1.castShadow = false;
-  pane1.userData.noTint = true; // 色変更時もガラスは保護
-  group.add(pane1);
-  const pane2 = makePart(paneW, paneH, 0.008, glassMat, 0);
-  pane2.position.set(W / 4 + 0.005, paneH / 2 + 0.03, paneZ);
-  pane2.castShadow = false;
-  pane2.userData.noTint = true;
-  group.add(pane2);
+  // ガラスは省略。窓枠の向こうがクリアに見えるよう開口部はそのまま空ける。
 
-  // 取っ手(各パネル中央付近)
+  // 取っ手(各パネル中央付近、宙に浮かないよう中央桟まわりに付ける)
   const handle1 = makePart(0.012, 0.18, 0.022, handleMat, 0.005);
   handle1.position.set(-0.06, H * 0.45, D * 0.45);
   group.add(handle1);
@@ -1971,13 +1948,13 @@ function buildMirror() {
   const frameT = 0.04;
 
   // 実際にシーンを反射する鏡面（Reflector: 平面ミラー）
-  // 解像度 512px。GPU コストを抑えつつ視覚的には十分（高すぎるとカタつく）
+  // 解像度 256px に抑える。鏡は毎フレーム シーンを再描画するため負荷が大きい。
   const mirror = new Reflector(
     new THREE.PlaneGeometry(W, H),
     {
       clipBias: 0.003,
-      textureWidth: 512,
-      textureHeight: Math.round(512 * (H / W)),
+      textureWidth: 256,
+      textureHeight: Math.round(256 * (H / W)),
       color: 0xe6ecf0,
     },
   );

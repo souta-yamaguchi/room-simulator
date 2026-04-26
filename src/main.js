@@ -10,6 +10,7 @@ import { updateBubbles, getCurrentDialogNpc, isNpcDialogActive } from './npc.js'
 import { CafeBGM } from './bgm.js';
 import { updateInteractions } from './interactions.js';
 import { IS_TOUCH } from './mobileControls.js';
+import { makeSkyTexture } from './textures.js';
 
 // --- モード判定: ?admin=<ADMIN_KEY> 付きなら管理者モード、無ければ訪問者モード ---
 // 本番公開時、このキーを知っている人だけが管理者UIを触れる。
@@ -30,12 +31,15 @@ function setStatus(msg) {
 }
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1a1a);
+// 空一面の背景: 窓やドア(透過するカーテン/ガラス)から外を見ると、
+// 天空に浮かぶ部屋のように空が広がる
+scene.background = makeSkyTexture();
 
 const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 200);
 camera.position.set(5, 4, 6);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// パフォーマンス重視: アンチエイリアスは OFF (最近のブラウザは標準で十分滑らか)
+const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.shadowMap.enabled = false; // 室内に強い影が落ちると不自然なのでオフ
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 container.appendChild(renderer.domElement);
@@ -230,7 +234,8 @@ function resize() {
   renderer.setSize(w, h, false);
   renderer.domElement.style.width = w + 'px';
   renderer.domElement.style.height = h + 'px';
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // 高DPRディスプレイで重くなりすぎないよう 1.5 を上限に
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }

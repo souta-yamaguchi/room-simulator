@@ -518,3 +518,91 @@ export function makePatternWallpaperTexture(baseHex = '#e8d9e8', motifHex = '#b8
   ctx.globalAlpha = 1;
   return finalize(canvas);
 }
+
+// 360°空テクスチャ (equirectangular, 2048×1024)。
+// 解像度を上げず "それっぽい" 青空に見せる工夫:
+// - 地平線(=窓越しの水平視線が当たる帯)を中間の青にして白っぽさを排除
+// - 雲は地平線帯 (canvas y=0.35〜0.65) に集中させる(見える場所に集める)
+// - 1雲あたり 8〜12 個のソフトブロブを横長に重ね、ふわふわ感を増す
+export function makeSkyTexture() {
+  const W = 2048, H = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // 縦方向の青グラデーション。地平線を「淡い青」ではなく「中間の鮮青」にして空感を保つ。
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0.00, '#1f5cb8');   // 天頂(deep)
+  grad.addColorStop(0.30, '#3d80cf');
+  grad.addColorStop(0.50, '#6ba5dd');   // 地平線 (中間の鮮青、白っぽくしない)
+  grad.addColorStop(0.70, '#3d80cf');
+  grad.addColorStop(1.00, '#1f5cb8');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  const drawSoftBlob = (cx, cy, radius, alpha) => {
+    const r = Math.max(2, radius);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, `rgba(255,255,255,${alpha})`);
+    g.addColorStop(0.5, `rgba(255,255,255,${alpha * 0.55})`);
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  };
+  // 横長のフワフワ雲: 8〜12 個のブロブを横に広げて重ねる
+  // 雲のブロブ配置を事前計算 → 同じ雲をシームの反対側にも描いて継ぎ目をなくす
+  const drawCloud = (cx, cy, scale, alpha) => {
+    const n = 8 + Math.floor(Math.random() * 5);
+    const blobs = [];
+    for (let j = 0; j < n; j++) {
+      blobs.push({
+        ox: (Math.random() - 0.5) * scale * 2.2,
+        oy: (Math.random() - 0.5) * scale * 0.5,
+        r: scale * (0.55 + Math.random() * 0.55),
+      });
+    }
+    const renderAt = (centerX) => {
+      for (const b of blobs) drawSoftBlob(centerX + b.ox, cy + b.oy, b.r, alpha);
+      drawSoftBlob(centerX, cy, scale * 0.8, Math.min(1, alpha + 0.1));
+    };
+    renderAt(cx);
+    // canvas の左右はシームでつながるので、端付近の雲は反対側にも描く
+    const margin = scale * 2.5;
+    if (cx < margin) renderAt(cx + W);
+    if (cx > W - margin) renderAt(cx - W);
+  };
+
+  // 雲は控えめ(青空 8割 / 雲 2割)。
+  // 地平線帯は窓越しの水平視線にあたるので、雲を絞って青空が見えるようにする。
+  // 横方向は約2048px → 大きな雲 8 個でスカスカに散らす。
+  for (let i = 0; i < 8; i++) {
+    const x = Math.random() * W;
+    const y = H * (0.38 + Math.random() * 0.24);
+    const s = 80 + Math.random() * 140;
+    const a = 0.55 + Math.random() * 0.25;
+    drawCloud(x, y, s, a);
+  }
+  // 上空にちらほら(極=y=0 を避けて y=8%〜30% に配置)
+  for (let i = 0; i < 8; i++) {
+    const x = Math.random() * W;
+    const y = H * (0.08 + Math.random() * 0.22);
+    const s = 70 + Math.random() * 130;
+    const a = 0.50 + Math.random() * 0.25;
+    drawCloud(x, y, s, a);
+  }
+  // 下空にもちらほら(極=y=H を避けて y=70%〜92%)
+  for (let i = 0; i < 8; i++) {
+    const x = Math.random() * W;
+    const y = H * (0.70 + Math.random() * 0.22);
+    const s = 70 + Math.random() * 130;
+    const a = 0.45 + Math.random() * 0.25;
+    drawCloud(x, y, s, a);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.anisotropy = 16;
+  tex.needsUpdate = true;
+  return tex;
+}

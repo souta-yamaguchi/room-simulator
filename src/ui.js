@@ -143,8 +143,8 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
       scene.add(obj);
       furnitureList.push(obj);
       selector.select(obj);
-      // 内壁/通り抜け窓枠を追加したら穴を再計算
-      if (type === 'wall' || type === 'passWindow') updateWallHoles(furnitureList);
+      // 内壁/通り抜け窓枠/窓を追加したら穴を再計算 (内壁+外壁)
+      if (type === 'wall' || type === 'passWindow' || type === 'window') updateWallHoles(furnitureList, room);
       setStatus(`${preset.label} を追加しました`);
     });
     designPalette.appendChild(btn);
@@ -205,7 +205,7 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
 
   // --- 壁ごとの色UI（形状変更に追従して再構築）
   const wallColorPer = document.getElementById('wall-color-per');
-  const wallLabelForRect = ['奥', '右', '手前', '左']; // 長方形の時のラベル
+  const wallLabelForRect = ['北壁', '東壁', '南壁', '西壁']; // 長方形の時のラベル(方角)
   const wallRowMap = new Map(); // index → row element（クリックハイライト用）
   let focusedWallIndex = null;
   const highlightWallRow = (i) => {
@@ -242,12 +242,12 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
       applyBtn.addEventListener('click', () => {
         room.setWallColorForIndex(i, picker.value);
         highlightWallRow(i); // 変更の直後もハイライト継続
-        setStatus(`${label}壁: ${picker.value}`);
+        setStatus(`${label}: ${picker.value}`);
       });
       resetBtn.addEventListener('click', () => {
         room.clearWallColorOverride(i);
         rebuildWallColorPer();
-        setStatus(`${label}壁の個別色を解除`);
+        setStatus(`${label}の個別色を解除`);
       });
       wallColorPer.appendChild(row);
       wallRowMap.set(i, row);
@@ -418,7 +418,7 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
       selector.refreshBox();
       syncSizeUI();
       const t = sel.userData?.furnitureType;
-      if (t === 'wall' || t === 'passWindow') updateWallHoles(furnitureList);
+      if (t === 'wall' || t === 'passWindow' || t === 'window') updateWallHoles(furnitureList, room);
     };
 
     sizeXEl.addEventListener('input', () => {
@@ -489,6 +489,7 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
     for (const m of furnitureList) room.clampInside(m);
     selector.refreshBox();
     rebuildWallColorPer();
+    updateWallHoles(furnitureList, room);
     setStatus(`部屋を「${ROOM_SHAPES[shapeEl.value]?.label}」に変更`);
   });
 
@@ -541,6 +542,8 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
     room.setSize(w, d, h); // updateGeometry を呼ぶので wallExpand も反映される
     for (const m of furnitureList) room.clampInside(m);
     selector.refreshBox();
+    // 部屋の外壁が再生成されたので、窓位置の穴を計算し直す
+    updateWallHoles(furnitureList, room);
   };
   wEl.addEventListener('input', applyRoom);
   dEl.addEventListener('input', applyRoom);
@@ -606,13 +609,23 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
       setStatus('上から見る視点に切替（Rで家具回転）');
     });
 
-    // 背景色ローテーション
-    const backgrounds = [0x1a1a1a, 0x2a3040, 0xb8c4d9, 0xf4efe6, 0x0a0a12];
-    const bgNames = ['ダーク', 'ミッドナイト', 'スカイ', 'クリーム', 'ほぼ黒'];
-    let bgIdx = 0;
-    document.getElementById('view-bg-toggle').addEventListener('click', () => {
+    // 背景ローテーション (空テクスチャ + 単色いくつか)
+    let skyTex = null;
+    const backgrounds = ['sky', 0x1a1a1a, 0x2a3040, 0xb8c4d9, 0xf4efe6, 0x0a0a12];
+    const bgNames = ['空(雲)', 'ダーク', 'ミッドナイト', 'スカイブルー', 'クリーム', 'ほぼ黒'];
+    let bgIdx = 0; // 起動時は空背景
+    document.getElementById('view-bg-toggle').addEventListener('click', async () => {
       bgIdx = (bgIdx + 1) % backgrounds.length;
-      scene.background = new THREE.Color(backgrounds[bgIdx]);
+      const v = backgrounds[bgIdx];
+      if (v === 'sky') {
+        if (!skyTex) {
+          const { makeSkyTexture } = await import('./textures.js');
+          skyTex = makeSkyTexture();
+        }
+        scene.background = skyTex;
+      } else {
+        scene.background = new THREE.Color(v);
+      }
       setStatus(`背景: ${bgNames[bgIdx]}`);
     });
 
@@ -839,6 +852,6 @@ function applyLayout(data, { scene, room, furnitureList, selector, swatchButtons
       console.warn('skipping unknown furniture', f, e);
     }
   }
-  // 全家具配置後に内壁の穴を計算
-  updateWallHoles(furnitureList);
+  // 全家具配置後に内壁/外壁の穴を計算
+  updateWallHoles(furnitureList, room);
 }
