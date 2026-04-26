@@ -153,6 +153,10 @@ export class TouchCamera {
     this.tapStartTime = performance.now();
     this.tapMoved = false;
     this.justStarted = true; // 最初の move は回転させずキャリブレーションだけ
+    // attach() 後に外部から camera.lookAt() で姿勢を変えられても追従できるよう、
+    // touch 開始のたびに euler を最新のカメラ姿勢から再キャプチャ。
+    // (これを怠ると初回ドラッグで attach 時点の姿勢にスナップして見えてしまう)
+    this.euler.setFromQuaternion(this.camera.quaternion);
     e.preventDefault();
   }
 
