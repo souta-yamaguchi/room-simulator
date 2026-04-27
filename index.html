@@ -118,8 +118,9 @@
         color: #fff; border: none; border-radius: 8px; cursor: pointer;
       }
 
-      /* "一人称視点中" 表示は PC/モバイルとも常時非表示 (画面の邪魔) */
+      /* "一人称視点中" 表示と左上のショートカット説明は PC/モバイルとも常時非表示 (画面の邪魔) */
       #walk-indicator { display: none !important; }
+      #hint { display: none !important; }
       /* ---- レスポンシブ (タッチデバイス or 幅 ≤ 900px) ---- */
       @media (max-width: 900px), (pointer: coarse) {
         #sidebar { display: none !important; }
