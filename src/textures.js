@@ -522,8 +522,186 @@ export function makePatternWallpaperTexture(baseHex = '#e8d9e8', motifHex = '#b8
 // 360°空テクスチャ (equirectangular)。
 // PC は 2048×1024 / モバイルは 1024×512 で VRAM とフィルレートを節約。
 // - 地平線(=窓越しの水平視線が当たる帯)を中間の青にして白っぽさを排除
-// - 雲は地平線帯 (canvas y=0.35〜0.65) に集中させる(見える場所に集める)
-// - 1雲あたり 8〜12 個のソフトブロブを横長に重ね、ふわふわ感を増す
+// チャンピオンベルトの中央プレート用テクスチャ
+// 金色グラデ + 黒縁 + 中央赤楕円 + 大きな"W" + 上下に "★ CHAMPION ★" / "WORLD"
+export function makeWrestlingBeltPlateTexture() {
+  const W = 256, H = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // 金グラデ背景(放射状)
+  const grad = ctx.createRadialGradient(W / 2, H / 2, 8, W / 2, H / 2, W / 2);
+  grad.addColorStop(0, '#fbe488');
+  grad.addColorStop(0.55, '#d4a838');
+  grad.addColorStop(1, '#7a5418');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 外周ダーク縁
+  ctx.strokeStyle = '#3a2410';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(5, 5, W - 10, H - 10);
+
+  // 内側の金縁
+  ctx.strokeStyle = '#fbe488';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(16, 16, W - 32, H - 32);
+
+  // 中央の赤い楕円(センターパネル)
+  ctx.fillStyle = '#c81e2e';
+  ctx.beginPath();
+  ctx.ellipse(W / 2, H / 2, W * 0.30, H * 0.36, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#fbe488';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // 大きな"W"
+  ctx.fillStyle = '#fbe488';
+  ctx.font = 'bold 110px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('W', W / 2, H / 2 + 4);
+
+  // 上の "★ CHAMPION ★"
+  ctx.fillStyle = '#3a2410';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillText('★ CHAMPION ★', W / 2, 32);
+
+  // 下の "WORLD"
+  ctx.fillStyle = '#3a2410';
+  ctx.font = 'bold 22px sans-serif';
+  ctx.fillText('WORLD', W / 2, H - 28);
+
+  // 左右の星(大)
+  ctx.fillStyle = '#fbe488';
+  ctx.font = 'bold 32px sans-serif';
+  ctx.fillText('★', 36, H / 2 + 2);
+  ctx.fillText('★', W - 36, H / 2 + 2);
+
+  return finalize(canvas, { anisotropy: 8 });
+}
+
+// サイン入り写真用テクスチャ
+// 紙背景 + リング3本ロープ + 万歳ポーズの黒シルエット + "To 社長へ" + 赤いサイン
+export function makeWrestlingPhotoTexture() {
+  const W = 256, H = 320;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // 紙背景(クリームがかった白)
+  ctx.fillStyle = '#f7f1e3';
+  ctx.fillRect(0, 0, W, H);
+
+  // 紙の質感(うっすら斑点)
+  for (let i = 0; i < 60; i++) {
+    ctx.fillStyle = `rgba(180,160,130,${0.04 + Math.random() * 0.04})`;
+    const r = 1 + Math.random() * 2;
+    ctx.beginPath();
+    ctx.arc(Math.random() * W, Math.random() * H, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 背景のリングロープ(3本、黄色)
+  const ringTopY = 120;
+  for (let i = 0; i < 3; i++) {
+    const y = ringTopY + i * 32;
+    ctx.fillStyle = '#e0b830';
+    ctx.fillRect(18, y, W - 36, 7);
+    ctx.fillStyle = '#9a7820';
+    ctx.fillRect(18, y + 7, W - 36, 2);
+  }
+  // リングコーナーポスト(両端の縦支柱)
+  ctx.fillStyle = '#7a4838';
+  ctx.fillRect(16, 110, 10, 110);
+  ctx.fillRect(W - 26, 110, 10, 110);
+  // ポストキャップ(赤)
+  ctx.fillStyle = '#c81e2e';
+  ctx.fillRect(13, 108, 16, 8);
+  ctx.fillRect(W - 29, 108, 16, 8);
+
+  // レスラーのシルエット(中央、両腕万歳のガッツポーズ)
+  ctx.fillStyle = '#0a0a0a';
+  // 頭
+  ctx.beginPath();
+  ctx.arc(W / 2, 105, 24, 0, Math.PI * 2);
+  ctx.fill();
+  // 首
+  ctx.fillRect(W / 2 - 8, 125, 16, 12);
+  // 胴体(逆三角形に近い: 肩広め)
+  ctx.beginPath();
+  ctx.moveTo(W / 2 - 38, 138);
+  ctx.lineTo(W / 2 + 38, 138);
+  ctx.lineTo(W / 2 + 30, 215);
+  ctx.lineTo(W / 2 - 30, 215);
+  ctx.closePath();
+  ctx.fill();
+  // 両腕(上方向にV字に上げる)
+  // 左腕
+  ctx.save();
+  ctx.translate(W / 2 - 36, 142);
+  ctx.rotate(-0.85);
+  ctx.fillRect(-12, -65, 18, 70);
+  // 拳
+  ctx.beginPath();
+  ctx.arc(-3, -65, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  // 右腕
+  ctx.save();
+  ctx.translate(W / 2 + 36, 142);
+  ctx.rotate(0.85);
+  ctx.fillRect(-6, -65, 18, 70);
+  ctx.beginPath();
+  ctx.arc(3, -65, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  // 脚2本
+  ctx.fillRect(W / 2 - 28, 215, 20, 60);
+  ctx.fillRect(W / 2 + 8, 215, 20, 60);
+  // ブーツ(黒のさらに濃い帯)
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(W / 2 - 30, 268, 24, 12);
+  ctx.fillRect(W / 2 + 6, 268, 24, 12);
+
+  // 上部の宛名 "To 社長へ"
+  ctx.fillStyle = '#3a2818';
+  ctx.font = 'bold 19px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('To 社長へ', 18, 18);
+
+  // 右上に小さく "Thanks!"
+  ctx.font = 'italic bold 15px serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('Thanks!', W - 18, 22);
+
+  // 赤いサイン(右下、曲線で殴り書き風)
+  ctx.strokeStyle = '#d02030';
+  ctx.lineWidth = 4.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(W - 145, H - 55);
+  ctx.bezierCurveTo(W - 110, H - 95, W - 80, H - 30, W - 50, H - 70);
+  ctx.bezierCurveTo(W - 35, H - 88, W - 60, H - 45, W - 28, H - 32);
+  ctx.stroke();
+  // 下線スクリブル
+  ctx.beginPath();
+  ctx.moveTo(W - 145, H - 22);
+  ctx.lineTo(W - 28, H - 22);
+  ctx.stroke();
+  // 赤い星
+  ctx.fillStyle = '#d02030';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('★', W - 38, H - 90);
+
+  return finalize(canvas, { anisotropy: 8 });
+}
+
 export function makeSkyTexture(opts = {}) {
   const lowRes = opts.lowRes === true;
   const W = lowRes ? 1024 : 2048;

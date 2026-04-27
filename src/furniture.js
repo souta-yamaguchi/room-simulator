@@ -4,6 +4,7 @@ import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import {
   makeWoodTextureFurniture, makeFabricTexture,
   makeGeometricPatternTexture, makeFloralPatternTexture, makeNordicPatternTexture,
+  makeWrestlingBeltPlateTexture, makeWrestlingPhotoTexture,
 } from './textures.js';
 import { IS_TOUCH } from './mobileControls.js';
 
@@ -532,62 +533,69 @@ function buildBook() {
   return group;
 }
 
-// チャンピオンベルト: 茶色の革ベルト + 中央の大きな金プレート + サブプレート
+// チャンピオンベルト: 茶革ベルト + 縦長シールド型の中央プレート(テクスチャ付き) + 角形サブプレート
 function buildWrestlingBelt() {
   const group = new THREE.Group();
   const leatherMat = new THREE.MeshStandardMaterial({ color: 0x3a1f12, roughness: 0.85, metalness: 0.05 });
   const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4a838, roughness: 0.32, metalness: 0.85 });
   const goldDarkMat = new THREE.MeshStandardMaterial({ color: 0xb88820, roughness: 0.4, metalness: 0.8 });
-  const redMat = matteMat(0xc81e2e);
+  // 中央プレートのテクスチャマテリアル(W ★ CHAMPION ★ WORLD)
+  const plateTex = makeWrestlingBeltPlateTexture();
+  const plateMat = new THREE.MeshStandardMaterial({ map: plateTex, roughness: 0.32, metalness: 0.7 });
 
   // ベルト本体(茶革) - 薄く長い
   const strap = makePart(0.55, 0.022, 0.16, leatherMat, 0.004);
   strap.position.y = 0.011;
   group.add(strap);
 
-  // 中央プレート(大): 楕円風 = 円柱を扁平に
-  const mainPlateGeo = new THREE.CylinderGeometry(0.085, 0.085, 0.018, 32);
-  const mainPlate = new THREE.Mesh(mainPlateGeo, goldMat);
-  mainPlate.scale.set(1.0, 1.0, 1.25); // 縦長 (ベルトに対し縦)
-  mainPlate.rotation.x = Math.PI / 2; // 寝かせる(円盤面が上)
-  mainPlate.position.set(0, 0.031, 0);
-  mainPlate.castShadow = true;
-  group.add(mainPlate);
+  // 中央プレート(縦長シールド): ベース金板
+  const plateBase = makePart(0.20, 0.010, 0.22, goldMat, 0.014);
+  plateBase.position.set(0, 0.029, 0);
+  plateBase.castShadow = true;
+  group.add(plateBase);
 
-  // 中央プレートの内側リング(縁取り)
-  const innerRingGeo = new THREE.CylinderGeometry(0.072, 0.072, 0.022, 32);
-  const innerRing = new THREE.Mesh(innerRingGeo, goldDarkMat);
-  innerRing.scale.set(1.0, 1.0, 1.25);
-  innerRing.rotation.x = Math.PI / 2;
-  innerRing.position.set(0, 0.033, 0);
-  group.add(innerRing);
+  // 中央プレートの上面: テクスチャ付き平面 (W字+CHAMPION文字)
+  const plateFaceGeo = new THREE.PlaneGeometry(0.184, 0.204);
+  const plateFace = new THREE.Mesh(plateFaceGeo, plateMat);
+  plateFace.rotation.x = -Math.PI / 2;
+  plateFace.position.set(0, 0.0345, 0);
+  group.add(plateFace);
 
-  // 中央の赤い小プレート (チャンピオンマーク部分)
-  const redCenterGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.024, 24);
-  const redCenter = new THREE.Mesh(redCenterGeo, redMat);
-  redCenter.scale.set(1.0, 1.0, 1.2);
-  redCenter.rotation.x = Math.PI / 2;
-  redCenter.position.set(0, 0.035, 0);
-  group.add(redCenter);
+  // 中央プレート両脇に「翼」風の小さな金パーツ(イーグル風)
+  for (const sx of [-1, 1]) {
+    const wing = makePart(0.045, 0.008, 0.060, goldDarkMat, 0.005);
+    wing.position.set(sx * 0.115, 0.026, 0);
+    wing.rotation.y = sx * 0.3;
+    group.add(wing);
+  }
 
-  // 中央に金の星(代わりに小さな金円)
-  const starGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.026, 16);
-  const star = new THREE.Mesh(starGeo, goldMat);
-  star.rotation.x = Math.PI / 2;
-  star.position.set(0, 0.038, 0);
-  group.add(star);
-
-  // 両サイドのサブプレート(各サイド2つずつ、計4つ)
-  const subPlateMat = goldMat;
-  const subOffsets = [-0.18, -0.13, 0.13, 0.18];
-  for (const xo of subOffsets) {
-    const sub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.035, 0.035, 0.014, 20),
-      subPlateMat,
-    );
-    sub.rotation.x = Math.PI / 2;
-    sub.position.set(xo, 0.029, 0);
+  // 両サイドの角形サブプレート(各サイド1つ、計2つ)
+  for (const sx of [-1, 1]) {
+    const xo = sx * 0.21;
+    // 角丸の四角プレート
+    const sub = makePart(0.085, 0.012, 0.110, goldMat, 0.008);
+    sub.position.set(xo, 0.027, 0);
     group.add(sub);
+    // プレート内側のダーク縁取り
+    const subBorder = makePart(0.070, 0.014, 0.092, goldDarkMat, 0.006);
+    subBorder.position.set(xo, 0.029, 0);
+    group.add(subBorder);
+    // プレート中央の金の星(平たい角ダイヤ)
+    const star = makePart(0.028, 0.008, 0.028, goldMat, 0.003);
+    star.position.set(xo, 0.034, 0);
+    star.rotation.y = Math.PI / 4;
+    group.add(star);
+    // 4隅のリベット
+    for (const rx of [-0.030, 0.030]) {
+      for (const rz of [-0.042, 0.042]) {
+        const rivet = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.005, 0.005, 0.006, 8),
+          goldDarkMat,
+        );
+        rivet.position.set(xo + rx, 0.034, rz);
+        group.add(rivet);
+      }
+    }
   }
 
   // ベルトの縁ステッチ風に細いライン (上下に2本)
@@ -601,163 +609,207 @@ function buildWrestlingBelt() {
   return group;
 }
 
-// プロレスマスク: ルチャドール風 (赤ベース + 黒目穴 + 黄色稲妻 + 白口元)
+// プロレスマスク: ヘルメット型 (下が開いた半球) + 立体的な目周り + 額稲妻 + 後頭部編み紐 + 立派なスタンド
 function buildWrestlingMask() {
   const group = new THREE.Group();
   const redMat = matteMat(0xc81e2e);
+  const redDarkMat = matteMat(0x8a1820);
   const blackMat = matteMat(0x0a0a0a);
   const yellowMat = matteMat(0xffd735);
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4a838, roughness: 0.35, metalness: 0.7 });
   const whiteMat = matteMat(0xffffff);
 
-  // 台座(マスクスタンド)
-  const standGeo = new THREE.CylinderGeometry(0.06, 0.075, 0.015, 18);
-  const stand = new THREE.Mesh(standGeo, blackMat);
-  stand.position.y = 0.0075;
-  stand.castShadow = true;
-  group.add(stand);
+  // スタンド台座(2段、装飾的に)
+  const standBase = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.085, 0.100, 0.014, 24),
+    blackMat,
+  );
+  standBase.position.y = 0.007;
+  standBase.castShadow = true;
+  group.add(standBase);
+  const standUpper = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.065, 0.085, 0.010, 22),
+    blackMat,
+  );
+  standUpper.position.y = 0.019;
+  group.add(standUpper);
+  // スタンド上面の金リング(装飾)
+  const standRing = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.055, 0.005, 22),
+    goldMat,
+  );
+  standRing.position.y = 0.026;
+  group.add(standRing);
 
-  // スタンドの首ポール
-  const polGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.05, 12);
-  const pole = new THREE.Mesh(polGeo, blackMat);
-  pole.position.y = 0.04;
+  // スタンド首ポール
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.013, 0.013, 0.075, 12),
+    blackMat,
+  );
+  pole.position.y = 0.066;
   group.add(pole);
 
-  // マスクヘッド本体(球を少し縦長にして頭の形)
-  const headGeo = new THREE.SphereGeometry(0.085, 24, 18);
+  // マスク本体: ヘルメット型(下が開いた球の上7割)
+  // SphereGeometry の thetaLength で「上から下までどこまで覆うか」を制御
+  const headGeo = new THREE.SphereGeometry(0.095, 28, 22, 0, Math.PI * 2, 0, Math.PI * 0.72);
   const head = new THREE.Mesh(headGeo, redMat);
-  head.scale.set(1.0, 1.15, 1.0);
-  head.position.y = 0.15;
+  head.scale.set(1.0, 1.20, 0.95); // 縦長・前後やや薄め
+  head.position.y = 0.180;
   head.castShadow = true;
   group.add(head);
 
-  // 目穴(黒い楕円が2つ、前面に貼り付け)
+  // 頭頂のセンタークレスト(モヒカン風の盛り上がり)
+  const crest = makePart(0.022, 0.130, 0.022, redDarkMat, 0.004);
+  crest.position.set(0, 0.255, 0);
+  crest.castShadow = true;
+  group.add(crest);
+  // クレストの先端に金の星
+  const crestStar = makePart(0.022, 0.018, 0.022, goldMat, 0.003);
+  crestStar.position.set(0, 0.323, 0);
+  crestStar.rotation.y = Math.PI / 4;
+  group.add(crestStar);
+
+  // 目穴(黒い深め楕円)
   for (const sx of [-1, 1]) {
-    const eye = makePart(0.030, 0.020, 0.010, blackMat, 0.003);
-    eye.position.set(sx * 0.030, 0.165, 0.080);
-    group.add(eye);
+    const eyeHole = makePart(0.040, 0.026, 0.014, blackMat, 0.005);
+    eyeHole.position.set(sx * 0.034, 0.190, 0.078);
+    group.add(eyeHole);
   }
 
-  // 目の周りの黄色い縁取り(目の上下)
+  // 目の周りの黄色いトーラス(半円)で立体的なゴーグル感
   for (const sx of [-1, 1]) {
-    const eyeBrow = makePart(0.040, 0.006, 0.008, yellowMat, 0.002);
-    eyeBrow.position.set(sx * 0.030, 0.180, 0.078);
-    eyeBrow.rotation.z = sx * 0.18;
-    group.add(eyeBrow);
+    const eyeRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.026, 0.005, 6, 16, Math.PI),
+      yellowMat,
+    );
+    eyeRing.position.set(sx * 0.034, 0.197, 0.082);
+    eyeRing.rotation.x = -Math.PI / 2;
+    group.add(eyeRing);
   }
 
-  // 額の黄色い稲妻(縦長の細い菱形を斜めに2本)
-  const bolt1 = makePart(0.012, 0.040, 0.006, yellowMat, 0.001);
-  bolt1.position.set(0, 0.215, 0.075);
-  bolt1.rotation.z = 0.4;
-  group.add(bolt1);
-  const bolt2 = makePart(0.012, 0.030, 0.006, yellowMat, 0.001);
-  bolt2.position.set(0.012, 0.235, 0.072);
-  bolt2.rotation.z = -0.5;
-  group.add(bolt2);
-
-  // 鼻のあたりに小さな黄色いダイヤ
-  const noseDiamond = makePart(0.014, 0.014, 0.006, yellowMat, 0.001);
-  noseDiamond.position.set(0, 0.140, 0.084);
-  noseDiamond.rotation.z = Math.PI / 4;
-  group.add(noseDiamond);
-
-  // 口元の白いライン (口の輪郭)
-  const mouthLine = makePart(0.040, 0.005, 0.006, whiteMat, 0.001);
-  mouthLine.position.set(0, 0.108, 0.083);
-  group.add(mouthLine);
-
-  // サイドの白いストライプ(両側、頭頂から耳横へ)
+  // 眉のV字ライン(目の上)
   for (const sx of [-1, 1]) {
-    const stripe = makePart(0.008, 0.10, 0.006, whiteMat, 0.001);
-    stripe.position.set(sx * 0.075, 0.180, 0.040);
-    stripe.rotation.z = sx * 0.15;
+    const brow = makePart(0.030, 0.010, 0.008, blackMat, 0.002);
+    brow.position.set(sx * 0.026, 0.221, 0.078);
+    brow.rotation.z = sx * 0.5;
+    group.add(brow);
+  }
+
+  // 額の黄色い稲妻(ジグザグ3パーツ)
+  const boltSegs = [
+    { x: 0.000, y: 0.265, w: 0.016, h: 0.026, rot: 0.45 },
+    { x: 0.013, y: 0.245, w: 0.014, h: 0.022, rot: -0.55 },
+    { x: 0.000, y: 0.227, w: 0.012, h: 0.018, rot: 0.35 },
+  ];
+  for (const b of boltSegs) {
+    const seg = makePart(b.w, b.h, 0.009, yellowMat, 0.002);
+    seg.position.set(b.x, b.y, 0.075);
+    seg.rotation.z = b.rot;
+    group.add(seg);
+  }
+
+  // 鼻の盛り上がり
+  const noseRidge = makePart(0.014, 0.040, 0.012, redDarkMat, 0.003);
+  noseRidge.position.set(0, 0.166, 0.090);
+  group.add(noseRidge);
+
+  // 口元の黒い口開口
+  const mouthHole = makePart(0.052, 0.014, 0.010, blackMat, 0.004);
+  mouthHole.position.set(0, 0.122, 0.085);
+  group.add(mouthHole);
+  // 口の上の白い歯ライン
+  const teethLine = makePart(0.040, 0.005, 0.008, whiteMat, 0.001);
+  teethLine.position.set(0, 0.130, 0.090);
+  group.add(teethLine);
+
+  // サイドの白いストライプ(顔の側面、下方向に)
+  for (const sx of [-1, 1]) {
+    const stripe = makePart(0.012, 0.140, 0.010, whiteMat, 0.002);
+    stripe.position.set(sx * 0.078, 0.190, 0.040);
+    stripe.rotation.z = sx * 0.18;
+    stripe.rotation.x = -0.10;
     group.add(stripe);
+  }
+
+  // 後頭部の編み上げ紐(白い玉が縦に4つ並ぶ)
+  for (let i = 0; i < 4; i++) {
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.010, 10, 8), whiteMat);
+    knot.position.set(0, 0.150 + i * 0.025, -0.080);
+    group.add(knot);
+  }
+  // 編み上げ紐の左右の交差ライン
+  for (let i = 0; i < 3; i++) {
+    const y = 0.165 + i * 0.025;
+    for (const sx of [-1, 1]) {
+      const cross = makePart(0.024, 0.004, 0.006, whiteMat, 0);
+      cross.position.set(sx * 0.014, y, -0.080);
+      cross.rotation.z = sx * 0.6;
+      group.add(cross);
+    }
+  }
+  // 後ろに垂れ下がる紐の端(ビラビラ2本)
+  for (const sx of [-1, 1]) {
+    const lace = makePart(0.006, 0.050, 0.005, whiteMat, 0);
+    lace.position.set(sx * 0.012, 0.130, -0.082);
+    lace.rotation.z = sx * 0.25;
+    group.add(lace);
   }
 
   return group;
 }
 
-// サイン入り写真フレーム: 木枠 + 白い写真面 + レスラーシルエット + 赤いサイン書き
+// サイン入り写真フレーム: 木枠 + テクスチャ写真(リング/レスラー/赤いサイン文字) + 立てかけ脚
 function buildWrestlingPhotoFrame() {
   const group = new THREE.Group();
   const frameMat = woodMat('#4a2f18', [0.5, 0.5]);
-  const paperMat = matteMat(0xf5f0e8);
-  const silhouetteMat = matteMat(0x161616);
-  const redInkMat = matteMat(0xd02030);
+  const photoTex = makeWrestlingPhotoTexture();
+  const photoMat = new THREE.MeshStandardMaterial({ map: photoTex, roughness: 0.6, metalness: 0 });
 
-  // フレームの全体ベース(背面の薄板)
-  const back = makePart(0.20, 0.26, 0.012, frameMat, 0.002);
+  // フレーム背面(写真の裏板)
+  const back = makePart(0.20, 0.26, 0.012, frameMat, 0.003);
   back.position.set(0, 0.13, 0);
   back.castShadow = true;
   group.add(back);
 
-  // 写真面(白い紙、わずかに前へ)
-  const paper = makePart(0.17, 0.23, 0.006, paperMat, 0);
-  paper.position.set(0, 0.13, 0.010);
-  group.add(paper);
+  // 写真面(テクスチャ付き平面、フレーム内側に配置)
+  const photoGeo = new THREE.PlaneGeometry(0.176, 0.236);
+  const photo = new THREE.Mesh(photoGeo, photoMat);
+  photo.position.set(0, 0.13, 0.011);
+  group.add(photo);
 
-  // フレーム外枠(4辺) - 写真面より少し前に出す
-  const frameThick = 0.018;
-  const frameDepth = 0.012;
-  // 上
-  const top = makePart(0.215, frameThick, frameDepth, frameMat, 0.002);
-  top.position.set(0, 0.255, 0.014);
+  // フレーム外枠(4辺) - 厚みを出して立体的に
+  const frameThick = 0.022;
+  const frameDepth = 0.016;
+  const top = makePart(0.220, frameThick, frameDepth, frameMat, 0.003);
+  top.position.set(0, 0.259, 0.014);
   group.add(top);
-  // 下
-  const bottom = makePart(0.215, frameThick, frameDepth, frameMat, 0.002);
-  bottom.position.set(0, 0.005, 0.014);
+  const bottom = makePart(0.220, frameThick, frameDepth, frameMat, 0.003);
+  bottom.position.set(0, 0.001, 0.014);
   group.add(bottom);
-  // 左
-  const left = makePart(frameThick, 0.265, frameDepth, frameMat, 0.002);
+  const left = makePart(frameThick, 0.272, frameDepth, frameMat, 0.003);
   left.position.set(-0.099, 0.13, 0.014);
   group.add(left);
-  // 右
-  const right = makePart(frameThick, 0.265, frameDepth, frameMat, 0.002);
+  const right = makePart(frameThick, 0.272, frameDepth, frameMat, 0.003);
   right.position.set(0.099, 0.13, 0.014);
   group.add(right);
 
-  // 写真の中身: レスラーのシルエット (両腕を上げたガッツポーズ風)
-  // 頭
-  const sHead = new THREE.Mesh(new THREE.SphereGeometry(0.022, 14, 10), silhouetteMat);
-  sHead.position.set(0, 0.205, 0.018);
-  group.add(sHead);
-  // 胴体
-  const sBody = makePart(0.052, 0.080, 0.008, silhouetteMat, 0.004);
-  sBody.position.set(0, 0.150, 0.018);
-  group.add(sBody);
-  // 両腕(上方向に万歳)
-  for (const sx of [-1, 1]) {
-    const arm = makePart(0.014, 0.072, 0.008, silhouetteMat, 0.003);
-    arm.position.set(sx * 0.034, 0.198, 0.018);
-    arm.rotation.z = sx * 0.55;
-    group.add(arm);
-  }
-  // 両脚
-  for (const sx of [-1, 1]) {
-    const leg = makePart(0.020, 0.060, 0.008, silhouetteMat, 0.003);
-    leg.position.set(sx * 0.013, 0.085, 0.018);
-    group.add(leg);
+  // フレーム内側のうっすら金縁(高級感)
+  const goldTrimMat = new THREE.MeshStandardMaterial({ color: 0xb88820, roughness: 0.4, metalness: 0.6 });
+  const trimDepth = 0.010;
+  for (const [w, h, x, y] of [
+    [0.184, 0.005, 0, 0.245], [0.184, 0.005, 0, 0.015],
+    [0.005, 0.230, -0.090, 0.13], [0.005, 0.230, 0.090, 0.13],
+  ]) {
+    const trim = makePart(w, h, trimDepth, goldTrimMat, 0.001);
+    trim.position.set(x, y, 0.008);
+    group.add(trim);
   }
 
-  // 赤いサインの落書き(細長い棒を斜めに数本、写真の下方に)
-  const sigSpecs = [
-    { x: -0.040, y: 0.055, w: 0.060, rot: 0.25 },
-    { x:  0.005, y: 0.048, w: 0.050, rot: -0.20 },
-    { x:  0.045, y: 0.058, w: 0.040, rot: 0.35 },
-    { x: -0.020, y: 0.040, w: 0.030, rot: 0.10 },
-  ];
-  for (const s of sigSpecs) {
-    const stroke = makePart(s.w, 0.005, 0.005, redInkMat, 0.001);
-    stroke.position.set(s.x, s.y, 0.020);
-    stroke.rotation.z = s.rot;
-    group.add(stroke);
-  }
-
-  // 立てかけ用の支え脚 (背面に斜めに1本)
+  // 立てかけ用の支え脚(背面に斜め)
   const standMat = woodMat('#3a2410', [0.5, 0.5]);
-  const standLeg = makePart(0.018, 0.18, 0.012, standMat, 0.002);
-  standLeg.position.set(0, 0.10, -0.060);
-  standLeg.rotation.x = -0.35; // 後ろに倒す
+  const standLeg = makePart(0.020, 0.190, 0.014, standMat, 0.003);
+  standLeg.position.set(0, 0.105, -0.062);
+  standLeg.rotation.x = -0.38;
   group.add(standLeg);
 
   return group;
