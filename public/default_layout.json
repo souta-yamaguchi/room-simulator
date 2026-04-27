@@ -696,6 +696,51 @@
       "fixedY": 0.76
     },
     {
+      "type": "wrestlingBelt",
+      "position": [
+        -2.10,
+        0.76,
+        0.05
+      ],
+      "rotationY": 0,
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "fixedY": 0.76
+    },
+    {
+      "type": "wrestlingMask",
+      "position": [
+        -0.95,
+        0.76,
+        0.05
+      ],
+      "rotationY": 3.141592653589793,
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "fixedY": 0.76
+    },
+    {
+      "type": "wrestlingPhotoFrame",
+      "position": [
+        -1.45,
+        0.76,
+        -0.10
+      ],
+      "rotationY": 3.141592653589793,
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "fixedY": 0.76
+    },
+    {
       "type": "youngManSit",
       "position": [
         -3.8938387323817256,

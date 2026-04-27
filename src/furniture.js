@@ -48,6 +48,10 @@ export const FURNITURE_PRESETS = {
   book:   { label: '本',             size: [0.16, 0.24, 0.03] },
   aircon: { label: 'エアコン',       size: [0.8, 0.28, 0.2] },
   lamp:   { label: 'デスクライト',   size: [0.2, 0.5, 0.2] },
+  // プロレス系小物 (社長の趣味コーナー)
+  wrestlingBelt:       { label: 'プロレスベルト',   size: [0.55, 0.06, 0.18] },
+  wrestlingMask:       { label: 'プロレスマスク',   size: [0.18, 0.24, 0.20] },
+  wrestlingPhotoFrame: { label: 'サイン入り写真',   size: [0.22, 0.28, 0.04] },
 };
 
 // 部屋の構造要素（壁に付ける系）。配置時に壁を突き抜けるのでclamp対象外。
@@ -524,6 +528,237 @@ function buildBook() {
   const pages = makePart(0.145, 0.22, 0.025, pagesMat, 0);
   pages.position.set(0, 0.12, 0);
   group.add(pages);
+
+  return group;
+}
+
+// チャンピオンベルト: 茶色の革ベルト + 中央の大きな金プレート + サブプレート
+function buildWrestlingBelt() {
+  const group = new THREE.Group();
+  const leatherMat = new THREE.MeshStandardMaterial({ color: 0x3a1f12, roughness: 0.85, metalness: 0.05 });
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4a838, roughness: 0.32, metalness: 0.85 });
+  const goldDarkMat = new THREE.MeshStandardMaterial({ color: 0xb88820, roughness: 0.4, metalness: 0.8 });
+  const redMat = matteMat(0xc81e2e);
+
+  // ベルト本体(茶革) - 薄く長い
+  const strap = makePart(0.55, 0.022, 0.16, leatherMat, 0.004);
+  strap.position.y = 0.011;
+  group.add(strap);
+
+  // 中央プレート(大): 楕円風 = 円柱を扁平に
+  const mainPlateGeo = new THREE.CylinderGeometry(0.085, 0.085, 0.018, 32);
+  const mainPlate = new THREE.Mesh(mainPlateGeo, goldMat);
+  mainPlate.scale.set(1.0, 1.0, 1.25); // 縦長 (ベルトに対し縦)
+  mainPlate.rotation.x = Math.PI / 2; // 寝かせる(円盤面が上)
+  mainPlate.position.set(0, 0.031, 0);
+  mainPlate.castShadow = true;
+  group.add(mainPlate);
+
+  // 中央プレートの内側リング(縁取り)
+  const innerRingGeo = new THREE.CylinderGeometry(0.072, 0.072, 0.022, 32);
+  const innerRing = new THREE.Mesh(innerRingGeo, goldDarkMat);
+  innerRing.scale.set(1.0, 1.0, 1.25);
+  innerRing.rotation.x = Math.PI / 2;
+  innerRing.position.set(0, 0.033, 0);
+  group.add(innerRing);
+
+  // 中央の赤い小プレート (チャンピオンマーク部分)
+  const redCenterGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.024, 24);
+  const redCenter = new THREE.Mesh(redCenterGeo, redMat);
+  redCenter.scale.set(1.0, 1.0, 1.2);
+  redCenter.rotation.x = Math.PI / 2;
+  redCenter.position.set(0, 0.035, 0);
+  group.add(redCenter);
+
+  // 中央に金の星(代わりに小さな金円)
+  const starGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.026, 16);
+  const star = new THREE.Mesh(starGeo, goldMat);
+  star.rotation.x = Math.PI / 2;
+  star.position.set(0, 0.038, 0);
+  group.add(star);
+
+  // 両サイドのサブプレート(各サイド2つずつ、計4つ)
+  const subPlateMat = goldMat;
+  const subOffsets = [-0.18, -0.13, 0.13, 0.18];
+  for (const xo of subOffsets) {
+    const sub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.035, 0.014, 20),
+      subPlateMat,
+    );
+    sub.rotation.x = Math.PI / 2;
+    sub.position.set(xo, 0.029, 0);
+    group.add(sub);
+  }
+
+  // ベルトの縁ステッチ風に細いライン (上下に2本)
+  const stitchMat = matteMat(0xb87838);
+  for (const zo of [-0.072, 0.072]) {
+    const stitch = makePart(0.55, 0.004, 0.006, stitchMat, 0);
+    stitch.position.set(0, 0.024, zo);
+    group.add(stitch);
+  }
+
+  return group;
+}
+
+// プロレスマスク: ルチャドール風 (赤ベース + 黒目穴 + 黄色稲妻 + 白口元)
+function buildWrestlingMask() {
+  const group = new THREE.Group();
+  const redMat = matteMat(0xc81e2e);
+  const blackMat = matteMat(0x0a0a0a);
+  const yellowMat = matteMat(0xffd735);
+  const whiteMat = matteMat(0xffffff);
+
+  // 台座(マスクスタンド)
+  const standGeo = new THREE.CylinderGeometry(0.06, 0.075, 0.015, 18);
+  const stand = new THREE.Mesh(standGeo, blackMat);
+  stand.position.y = 0.0075;
+  stand.castShadow = true;
+  group.add(stand);
+
+  // スタンドの首ポール
+  const polGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.05, 12);
+  const pole = new THREE.Mesh(polGeo, blackMat);
+  pole.position.y = 0.04;
+  group.add(pole);
+
+  // マスクヘッド本体(球を少し縦長にして頭の形)
+  const headGeo = new THREE.SphereGeometry(0.085, 24, 18);
+  const head = new THREE.Mesh(headGeo, redMat);
+  head.scale.set(1.0, 1.15, 1.0);
+  head.position.y = 0.15;
+  head.castShadow = true;
+  group.add(head);
+
+  // 目穴(黒い楕円が2つ、前面に貼り付け)
+  for (const sx of [-1, 1]) {
+    const eye = makePart(0.030, 0.020, 0.010, blackMat, 0.003);
+    eye.position.set(sx * 0.030, 0.165, 0.080);
+    group.add(eye);
+  }
+
+  // 目の周りの黄色い縁取り(目の上下)
+  for (const sx of [-1, 1]) {
+    const eyeBrow = makePart(0.040, 0.006, 0.008, yellowMat, 0.002);
+    eyeBrow.position.set(sx * 0.030, 0.180, 0.078);
+    eyeBrow.rotation.z = sx * 0.18;
+    group.add(eyeBrow);
+  }
+
+  // 額の黄色い稲妻(縦長の細い菱形を斜めに2本)
+  const bolt1 = makePart(0.012, 0.040, 0.006, yellowMat, 0.001);
+  bolt1.position.set(0, 0.215, 0.075);
+  bolt1.rotation.z = 0.4;
+  group.add(bolt1);
+  const bolt2 = makePart(0.012, 0.030, 0.006, yellowMat, 0.001);
+  bolt2.position.set(0.012, 0.235, 0.072);
+  bolt2.rotation.z = -0.5;
+  group.add(bolt2);
+
+  // 鼻のあたりに小さな黄色いダイヤ
+  const noseDiamond = makePart(0.014, 0.014, 0.006, yellowMat, 0.001);
+  noseDiamond.position.set(0, 0.140, 0.084);
+  noseDiamond.rotation.z = Math.PI / 4;
+  group.add(noseDiamond);
+
+  // 口元の白いライン (口の輪郭)
+  const mouthLine = makePart(0.040, 0.005, 0.006, whiteMat, 0.001);
+  mouthLine.position.set(0, 0.108, 0.083);
+  group.add(mouthLine);
+
+  // サイドの白いストライプ(両側、頭頂から耳横へ)
+  for (const sx of [-1, 1]) {
+    const stripe = makePart(0.008, 0.10, 0.006, whiteMat, 0.001);
+    stripe.position.set(sx * 0.075, 0.180, 0.040);
+    stripe.rotation.z = sx * 0.15;
+    group.add(stripe);
+  }
+
+  return group;
+}
+
+// サイン入り写真フレーム: 木枠 + 白い写真面 + レスラーシルエット + 赤いサイン書き
+function buildWrestlingPhotoFrame() {
+  const group = new THREE.Group();
+  const frameMat = woodMat('#4a2f18', [0.5, 0.5]);
+  const paperMat = matteMat(0xf5f0e8);
+  const silhouetteMat = matteMat(0x161616);
+  const redInkMat = matteMat(0xd02030);
+
+  // フレームの全体ベース(背面の薄板)
+  const back = makePart(0.20, 0.26, 0.012, frameMat, 0.002);
+  back.position.set(0, 0.13, 0);
+  back.castShadow = true;
+  group.add(back);
+
+  // 写真面(白い紙、わずかに前へ)
+  const paper = makePart(0.17, 0.23, 0.006, paperMat, 0);
+  paper.position.set(0, 0.13, 0.010);
+  group.add(paper);
+
+  // フレーム外枠(4辺) - 写真面より少し前に出す
+  const frameThick = 0.018;
+  const frameDepth = 0.012;
+  // 上
+  const top = makePart(0.215, frameThick, frameDepth, frameMat, 0.002);
+  top.position.set(0, 0.255, 0.014);
+  group.add(top);
+  // 下
+  const bottom = makePart(0.215, frameThick, frameDepth, frameMat, 0.002);
+  bottom.position.set(0, 0.005, 0.014);
+  group.add(bottom);
+  // 左
+  const left = makePart(frameThick, 0.265, frameDepth, frameMat, 0.002);
+  left.position.set(-0.099, 0.13, 0.014);
+  group.add(left);
+  // 右
+  const right = makePart(frameThick, 0.265, frameDepth, frameMat, 0.002);
+  right.position.set(0.099, 0.13, 0.014);
+  group.add(right);
+
+  // 写真の中身: レスラーのシルエット (両腕を上げたガッツポーズ風)
+  // 頭
+  const sHead = new THREE.Mesh(new THREE.SphereGeometry(0.022, 14, 10), silhouetteMat);
+  sHead.position.set(0, 0.205, 0.018);
+  group.add(sHead);
+  // 胴体
+  const sBody = makePart(0.052, 0.080, 0.008, silhouetteMat, 0.004);
+  sBody.position.set(0, 0.150, 0.018);
+  group.add(sBody);
+  // 両腕(上方向に万歳)
+  for (const sx of [-1, 1]) {
+    const arm = makePart(0.014, 0.072, 0.008, silhouetteMat, 0.003);
+    arm.position.set(sx * 0.034, 0.198, 0.018);
+    arm.rotation.z = sx * 0.55;
+    group.add(arm);
+  }
+  // 両脚
+  for (const sx of [-1, 1]) {
+    const leg = makePart(0.020, 0.060, 0.008, silhouetteMat, 0.003);
+    leg.position.set(sx * 0.013, 0.085, 0.018);
+    group.add(leg);
+  }
+
+  // 赤いサインの落書き(細長い棒を斜めに数本、写真の下方に)
+  const sigSpecs = [
+    { x: -0.040, y: 0.055, w: 0.060, rot: 0.25 },
+    { x:  0.005, y: 0.048, w: 0.050, rot: -0.20 },
+    { x:  0.045, y: 0.058, w: 0.040, rot: 0.35 },
+    { x: -0.020, y: 0.040, w: 0.030, rot: 0.10 },
+  ];
+  for (const s of sigSpecs) {
+    const stroke = makePart(s.w, 0.005, 0.005, redInkMat, 0.001);
+    stroke.position.set(s.x, s.y, 0.020);
+    stroke.rotation.z = s.rot;
+    group.add(stroke);
+  }
+
+  // 立てかけ用の支え脚 (背面に斜めに1本)
+  const standMat = woodMat('#3a2410', [0.5, 0.5]);
+  const standLeg = makePart(0.018, 0.18, 0.012, standMat, 0.002);
+  standLeg.position.set(0, 0.10, -0.060);
+  standLeg.rotation.x = -0.35; // 後ろに倒す
+  group.add(standLeg);
 
   return group;
 }
@@ -3231,6 +3466,9 @@ const BUILDERS = {
   wall: buildWall,
   trackLight: buildTrackLight,
   floatShelf: buildFloatShelf,
+  wrestlingBelt: buildWrestlingBelt,
+  wrestlingMask: buildWrestlingMask,
+  wrestlingPhotoFrame: buildWrestlingPhotoFrame,
 };
 
 const ALL_PRESETS = { ...FURNITURE_PRESETS, ...DESIGN_PRESETS };
@@ -3251,6 +3489,9 @@ export function createFurniture(type) {
       type === 'curtain' || type === 'painting' ||
       type === 'mirror' || type === 'spawnPoint' ||
       type === 'passWindow' ||
+      // 机上の小物 (プロレス系飾り)
+      type === 'wrestlingBelt' || type === 'wrestlingMask' ||
+      type === 'wrestlingPhotoFrame' ||
       // ラグ類は床に置く平らな飾り。プレイヤー/ペットの当たり判定対象外。
       type === 'rug' || type === 'rug_geo' || type === 'rug_floral' ||
       type === 'rug_nordic' || type === 'rug_round' || type === 'rug_patchwork') {
