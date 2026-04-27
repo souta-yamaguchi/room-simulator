@@ -103,6 +103,8 @@ const walkMode = new WalkMode({
     document.getElementById('walk-indicator')?.classList.remove('active');
     const walkHelp = document.getElementById('walk-help');
     if (walkHelp) walkHelp.style.display = 'none';
+    const bgmBtn = document.getElementById('bgm-toggle-btn');
+    if (bgmBtn) bgmBtn.style.display = 'none';
     cafeBgm.stop();
   },
 });
@@ -197,14 +199,20 @@ if (!IS_ADMIN) {
     }
     // 入場直後に退出プロンプトが誤爆しないよう2秒クールダウン
     window.__setExitCooldown?.(2000);
-    cafeBgm.start();
+    // BGM は自動再生しない (訪問者がいきなり音を流されないように)。
+    // M キー or 画面右上のボタンで明示的にオン/オフできる。
     const walkInd = document.getElementById('walk-indicator');
     const crossHair = document.getElementById('walk-crosshair');
     const walkHelp = document.getElementById('walk-help');
+    const bgmBtn = document.getElementById('bgm-toggle-btn');
     if (walkInd) walkInd.style.display = 'block';
     if (crossHair) crossHair.style.display = 'block';
     // PC のみ操作ガイドを表示 (CSSで touch デバイスでは強制非表示)
     if (walkHelp && !IS_TOUCH) walkHelp.style.display = 'block';
+    if (bgmBtn) {
+      bgmBtn.style.display = 'block';
+      bgmBtn.textContent = '♪ OFF';
+    }
     // モバイルUIの表示
     if (IS_TOUCH) {
       const js = document.getElementById('mobile-joystick');
@@ -484,6 +492,33 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'e' || e.key === 'E') {
     if (triggerExitIfAvailable()) e.preventDefault();
   }
+});
+
+// BGMトグル: Mキー(PC) または 画面右上のボタン(PC/モバイル両用)
+function toggleBgm() {
+  if (!walkMode.enabled) return;
+  const bgmBtn = document.getElementById('bgm-toggle-btn');
+  if (cafeBgm.playing) {
+    cafeBgm.stop();
+    if (bgmBtn) bgmBtn.textContent = '♪ OFF';
+  } else {
+    cafeBgm.start();
+    if (bgmBtn) bgmBtn.textContent = '♪ ON';
+  }
+}
+window.addEventListener('keydown', (e) => {
+  if (!walkMode.enabled) return;
+  // テキスト入力中は無視
+  const tag = (document.activeElement?.tagName || '').toUpperCase();
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (e.key === 'm' || e.key === 'M') {
+    toggleBgm();
+    e.preventDefault();
+  }
+});
+document.getElementById('bgm-toggle-btn')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  toggleBgm();
 });
 // 近接中のマウスクリックでも退出(NPCクリックより優先するためキャプチャ段階で処理)
 renderer.domElement.addEventListener('mousedown', () => {

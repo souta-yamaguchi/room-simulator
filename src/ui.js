@@ -644,9 +644,14 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
         if (crossHair) crossHair.style.display = 'block';
         if (walkHelp) walkHelp.style.display = 'block'; // CSSで touch時は強制非表示
         if (quickWalkBtn) quickWalkBtn.style.display = 'none';
-        // カフェBGM開始(ボタンクリックがuser gestureなのでAudioContextがresumeできる)
-        walkMode.bgm?.start();
-        setStatus('一人称視点: WASDで移動 / クリックでNPC / Esc で終了');
+        const bgmBtn = document.getElementById('bgm-toggle-btn');
+        if (bgmBtn) {
+          bgmBtn.style.display = 'block';
+          bgmBtn.textContent = '♪ OFF';
+        }
+        // BGM は自動再生しない (訪問者がいきなり音を流されないように)。
+        // M キー or 画面右上のボタンで明示的にオン/オフ。
+        setStatus('一人称視点: WASDで移動 / クリックでNPC / Esc で終了 / Mで BGM');
       };
       walkBtn?.addEventListener('click', enterWalk);
       quickWalkBtn?.addEventListener('click', enterWalk);
@@ -656,6 +661,8 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
         if (crossHair) crossHair.style.display = 'none';
         if (walkHelp) walkHelp.style.display = 'none';
         if (quickWalkBtn) quickWalkBtn.style.display = '';
+        const bgmBtn = document.getElementById('bgm-toggle-btn');
+        if (bgmBtn) bgmBtn.style.display = 'none';
         origOnExit?.();
       };
     }
