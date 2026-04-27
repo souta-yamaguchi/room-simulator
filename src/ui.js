@@ -647,7 +647,7 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
         const bgmBtn = document.getElementById('bgm-toggle-btn');
         if (bgmBtn) {
           bgmBtn.style.display = 'block';
-          bgmBtn.textContent = '♪ OFF';
+          bgmBtn.textContent = 'BGMオフ　MキーでON';
         }
         // BGM は自動再生しない (訪問者がいきなり音を流されないように)。
         // M キー or 画面右上のボタンで明示的にオン/オフ。
