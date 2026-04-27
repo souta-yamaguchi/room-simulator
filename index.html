@@ -126,6 +126,8 @@
         #sidebar { display: none !important; }
         /* PC専用ショートカット説明 (マウス:カメラ/T移動 R回転...) はモバイルでは不要 */
         #hint { display: none !important; }
+        /* PC専用 walk操作ガイド はモバイルでは非表示 (ジョイスティックがあるので不要) */
+        #walk-help { display: none !important; }
         /* モバイルは exit-prompt 自体をタップしてリンク先に飛べるようにする */
         #exit-prompt {
           bottom: 28% !important; font-size: 14px !important; padding: 10px 20px !important;
@@ -264,6 +266,19 @@
         <div id="status"></div>
         <div id="walk-indicator" style="display:none; position:absolute; top:10%; left:50%; transform:translateX(-50%); color:white; background:rgba(0,0,0,0.6); padding:8px 14px; border-radius:8px; font-size:12px; pointer-events:none; text-align:center;">
           🚶 一人称視点中 / <small>WASD移動 マウス視点 Shiftしゃがむ Space伸びる クリックでNPCに話しかける Esc終了</small>
+        </div>
+        <!-- PC専用: 一人称視点中の操作ガイド (左上) -->
+        <div id="walk-help" style="display:none; position:absolute; top:14px; left:14px; color:#fff; background:rgba(0,0,0,0.55); padding:12px 16px; border-radius:10px; font-size:13px; line-height:1.7; pointer-events:none; font-family:'Hiragino Kaku Gothic ProN','ヒラギノ角ゴ ProN W3',Meiryo,sans-serif; box-shadow:0 4px 12px rgba(0,0,0,0.35); letter-spacing:0.02em;">
+          <div style="font-weight:700; color:#ffd76b; margin-bottom:6px; font-size:13px;">操作方法</div>
+          <div><b style="color:#ffe27a;">W</b> → 前に進む</div>
+          <div><b style="color:#ffe27a;">S</b> → 後ろに下がる</div>
+          <div><b style="color:#ffe27a;">A</b> → 左に移動</div>
+          <div><b style="color:#ffe27a;">D</b> → 右に移動</div>
+          <div><b style="color:#ffe27a;">マウス</b> → 視点を回す</div>
+          <div><b style="color:#ffe27a;">クリック</b> → NPCに話しかける</div>
+          <div><b style="color:#ffe27a;">Shift</b> → しゃがむ</div>
+          <div><b style="color:#ffe27a;">Space</b> → 伸びる</div>
+          <div><b style="color:#ffe27a;">Esc</b> → 終了</div>
         </div>
         <div id="walk-crosshair" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:12px; height:12px; border:1.5px solid rgba(255,255,255,0.8); border-radius:50%; pointer-events:none; box-shadow:0 0 6px rgba(0,0,0,0.5);"></div>
         <div id="exit-prompt" style="display:none; position:absolute; bottom:25%; left:50%; transform:translateX(-50%); background:linear-gradient(135deg,#d93a5a,#b02040); color:#ffffff; padding:14px 32px; border-radius:10px; font-size:17px; font-weight:bold; z-index:25; pointer-events:none; font-family:'Hiragino Kaku Gothic ProN','ヒラギノ角ゴ ProN W3',Meiryo,sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.5); letter-spacing:0.04em;">

@@ -101,6 +101,8 @@ const walkMode = new WalkMode({
   onExit: () => {
     setStatus('一人称視点を終了しました');
     document.getElementById('walk-indicator')?.classList.remove('active');
+    const walkHelp = document.getElementById('walk-help');
+    if (walkHelp) walkHelp.style.display = 'none';
     cafeBgm.stop();
   },
 });
@@ -198,8 +200,11 @@ if (!IS_ADMIN) {
     cafeBgm.start();
     const walkInd = document.getElementById('walk-indicator');
     const crossHair = document.getElementById('walk-crosshair');
+    const walkHelp = document.getElementById('walk-help');
     if (walkInd) walkInd.style.display = 'block';
     if (crossHair) crossHair.style.display = 'block';
+    // PC のみ操作ガイドを表示 (CSSで touch デバイスでは強制非表示)
+    if (walkHelp && !IS_TOUCH) walkHelp.style.display = 'block';
     // モバイルUIの表示
     if (IS_TOUCH) {
       const js = document.getElementById('mobile-joystick');

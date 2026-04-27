@@ -635,12 +635,14 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
       const quickWalkBtn = document.getElementById('quick-walk-btn');
       const walkInd = document.getElementById('walk-indicator');
       const crossHair = document.getElementById('walk-crosshair');
+      const walkHelp = document.getElementById('walk-help');
       const enterWalk = () => {
         // 選択中の家具があると操作競合するので解除
         selector.deselect();
         walkMode.enable();
         if (walkInd) walkInd.style.display = 'block';
         if (crossHair) crossHair.style.display = 'block';
+        if (walkHelp) walkHelp.style.display = 'block'; // CSSで touch時は強制非表示
         if (quickWalkBtn) quickWalkBtn.style.display = 'none';
         // カフェBGM開始(ボタンクリックがuser gestureなのでAudioContextがresumeできる)
         walkMode.bgm?.start();
@@ -652,6 +654,7 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
       walkMode.onExit = () => {
         if (walkInd) walkInd.style.display = 'none';
         if (crossHair) crossHair.style.display = 'none';
+        if (walkHelp) walkHelp.style.display = 'none';
         if (quickWalkBtn) quickWalkBtn.style.display = '';
         origOnExit?.();
       };
