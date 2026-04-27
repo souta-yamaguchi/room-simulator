@@ -646,9 +646,14 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
         if (walkHelp) walkHelp.style.display = 'block'; // CSSで touch時は強制非表示
         if (quickWalkBtn) quickWalkBtn.style.display = 'none';
         const bgmBtn = document.getElementById('bgm-toggle-btn');
+        // BGM ボタンは PC のみ表示。スマホでは隠す
         if (bgmBtn) {
-          bgmBtn.style.display = 'block';
-          bgmBtn.textContent = IS_TOUCH ? '♪' : 'BGMオフ　MキーでON';
+          if (IS_TOUCH) {
+            bgmBtn.style.display = 'none';
+          } else {
+            bgmBtn.style.display = 'block';
+            bgmBtn.textContent = 'BGMオフ　MキーでON';
+          }
         }
         // BGM は自動再生しない (訪問者がいきなり音を流されないように)。
         // M キー or 画面右上のボタンで明示的にオン/オフ。
