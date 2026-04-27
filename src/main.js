@@ -211,7 +211,7 @@ if (!IS_ADMIN) {
     if (walkHelp && !IS_TOUCH) walkHelp.style.display = 'block';
     if (bgmBtn) {
       bgmBtn.style.display = 'block';
-      bgmBtn.textContent = 'BGMオフ　MキーでON';
+      bgmBtn.textContent = IS_TOUCH ? '♪ OFF' : 'BGMオフ　MキーでON';
     }
     // モバイルUIの表示
     if (IS_TOUCH) {
@@ -500,10 +500,10 @@ function toggleBgm() {
   const bgmBtn = document.getElementById('bgm-toggle-btn');
   if (cafeBgm.playing) {
     cafeBgm.stop();
-    if (bgmBtn) bgmBtn.textContent = 'BGMオフ　MキーでON';
+    if (bgmBtn) bgmBtn.textContent = IS_TOUCH ? '♪ OFF' : 'BGMオフ　MキーでON';
   } else {
     cafeBgm.start();
-    if (bgmBtn) bgmBtn.textContent = 'BGMオン　MキーでOFF';
+    if (bgmBtn) bgmBtn.textContent = IS_TOUCH ? '♪ ON' : 'BGMオン　MキーでOFF';
   }
 }
 window.addEventListener('keydown', (e) => {
