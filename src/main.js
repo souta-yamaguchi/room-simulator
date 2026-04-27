@@ -209,14 +209,9 @@ if (!IS_ADMIN) {
     if (crossHair) crossHair.style.display = 'block';
     // PC のみ操作ガイドを表示 (CSSで touch デバイスでは強制非表示)
     if (walkHelp && !IS_TOUCH) walkHelp.style.display = 'block';
-    // BGM ボタンは PC のみ表示。スマホでは置かない (BGMはオフのまま)
     if (bgmBtn) {
-      if (IS_TOUCH) {
-        bgmBtn.style.display = 'none';
-      } else {
-        bgmBtn.style.display = 'block';
-        bgmBtn.textContent = 'BGMオフ　MキーでON';
-      }
+      bgmBtn.style.display = 'block';
+      bgmBtn.textContent = IS_TOUCH ? '♪ OFF' : 'BGMオフ　MキーでON';
     }
     // モバイルUIの表示
     if (IS_TOUCH) {
@@ -505,10 +500,10 @@ function toggleBgm() {
   const bgmBtn = document.getElementById('bgm-toggle-btn');
   if (cafeBgm.playing) {
     cafeBgm.stop();
-    if (bgmBtn) bgmBtn.textContent = 'BGMオフ　MキーでON';
+    if (bgmBtn) bgmBtn.textContent = IS_TOUCH ? '♪ OFF' : 'BGMオフ　MキーでON';
   } else {
     cafeBgm.start();
-    if (bgmBtn) bgmBtn.textContent = 'BGMオン　MキーでOFF';
+    if (bgmBtn) bgmBtn.textContent = IS_TOUCH ? '♪ ON' : 'BGMオン　MキーでOFF';
   }
 }
 window.addEventListener('keydown', (e) => {
