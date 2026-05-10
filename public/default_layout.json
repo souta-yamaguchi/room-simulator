@@ -1192,5 +1192,60 @@
       ],
       "fixedY": 0.14
     }
+  ],
+  "visitorNpcPatterns": [
+    {
+      "name": "通常(社長デスク・社員Y奥)",
+      "npcs": [
+        {
+          "type": "middleAgedManSit",
+          "position": [-1.6682947575333398, 0.08, 1.2352247960766638],
+          "rotationY": -0.06518964264320155,
+          "scale": [1, 1, 1],
+          "fixedY": 0.08
+        },
+        {
+          "type": "youngManSit",
+          "position": [-3.8938387323817256, 0, 1.241685970921375],
+          "rotationY": 0.6566239441371946,
+          "scale": [1, 1, 1]
+        }
+      ]
+    },
+    {
+      "name": "社員Yが立って打ち合わせ中",
+      "npcs": [
+        {
+          "type": "middleAgedManSit",
+          "position": [-1.6682947575333398, 0.08, 1.2352247960766638],
+          "rotationY": -0.06518964264320155,
+          "scale": [1, 1, 1],
+          "fixedY": 0.08
+        },
+        {
+          "type": "youngMan",
+          "position": [-1.0, 0, 0.6],
+          "rotationY": 3.141592653589793,
+          "scale": [1, 1, 1]
+        }
+      ]
+    },
+    {
+      "name": "社長立ち・社員Yはデスク",
+      "npcs": [
+        {
+          "type": "middleAgedMan",
+          "position": [0.5, 0, 0.0],
+          "rotationY": 1.5707963267948966,
+          "scale": [1, 1, 1]
+        },
+        {
+          "type": "youngManSit",
+          "position": [-3.8938387323817256, 0, 1.241685970921375],
+          "rotationY": 0.6566239441371946,
+          "scale": [1, 1, 1]
+        }
+      ]
+    }
   ]
 }

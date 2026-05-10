@@ -4,13 +4,17 @@ import { Room } from './room.js';
 import { Selector } from './selection.js';
 import { setupUI } from './ui.js';
 import { WalkMode } from './walk.js';
-import { setMonitorRenderTexture } from './furniture.js';
+import { setMonitorRenderTexture, disposeFurniture } from './furniture.js';
 import { updateLivings } from './livings.js';
 import { updateBubbles, getCurrentDialogNpc, isNpcDialogActive } from './npc.js';
 import { CafeBGM } from './bgm.js';
 import { updateInteractions } from './interactions.js';
 import { IS_TOUCH } from './mobileControls.js';
 import { makeSkyTexture } from './textures.js';
+import {
+  loadPatterns, pickRandomPattern,
+  removeNpcsFromScene, applyNpcPattern,
+} from './npcPatterns.js';
 
 // --- モード判定: ?admin=<ADMIN_KEY> 付きなら管理者モード、無ければ訪問者モード ---
 // 本番公開時、このキーを知っている人だけが管理者UIを触れる。
@@ -165,6 +169,16 @@ if (!IS_ADMIN) {
 
   const enterOffice = () => {
     welcome.style.display = 'none';
+    // 訪問者モードのみ: 入室のたびに NPC 配置パターンをランダム選択
+    // 管理者は localStorage 保存レイアウトの NPC をそのまま使うため触らない
+    if (!IS_ADMIN) {
+      const patterns = loadPatterns();
+      const picked = pickRandomPattern(patterns);
+      if (picked) {
+        removeNpcsFromScene(scene, furnitureList, disposeFurniture);
+        applyNpcPattern(scene, furnitureList, picked);
+      }
+    }
     walkMode.enable();
     // 初期位置の優先順位:
     // 1. 管理者が置いた spawnPoint があればそこ(矢印の向きで視線決定)

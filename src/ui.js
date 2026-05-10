@@ -5,6 +5,7 @@ import {
   createFurniture,
   deserializeFurniture,
   serializeFurniture,
+  disposeFurniture,
 } from './furniture.js';
 import { WALLPAPER_PRESETS, FLOOR_PRESETS, ROOM_SHAPES } from './room.js';
 import { saveLayout, loadLayout, clearLayout } from './storage.js';
@@ -12,19 +13,11 @@ import { showNpcSpeech, startNpcDialog, advanceNpcDialog, isNpcDialogActive, clo
 import { toggleInteraction } from './interactions.js';
 import { updateWallHoles } from './wallHoles.js';
 import { IS_TOUCH } from './mobileControls.js';
-
-function disposeFurniture(obj) {
-  obj.traverse((child) => {
-    if (child.geometry) child.geometry.dispose();
-    if (child.material) {
-      const mats = Array.isArray(child.material) ? child.material : [child.material];
-      for (const m of mats) {
-        if (m.map) m.map.dispose();
-        m.dispose();
-      }
-    }
-  });
-}
+import {
+  NPC_TYPES, isNpcType,
+  loadPatterns, savePatterns, seedPatternsIfEmpty,
+  extractCurrentNpcsAsPattern,
+} from './npcPatterns.js';
 
 // 0.6秒かけてカメラとターゲットをアニメーション移動
 function animateCamera(camera, orbit, toPos, toTarget, duration = 600) {
@@ -109,7 +102,7 @@ function applyWallpaperToWall(obj, room) {
   });
 }
 
-export function setupUI({ scene, room, furnitureList, selector, setStatus, camera, orbit, walkMode }) {
+export function setupUI({ scene, room, furnitureList, selector, setStatus, camera, orbit, walkMode, isAdmin = true }) {
   // --- 家具パレット
   const palette = document.getElementById('palette');
   for (const [type, preset] of Object.entries(FURNITURE_PRESETS)) {
@@ -589,7 +582,7 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
   document.getElementById('load-btn').addEventListener('click', () => {
     const data = loadLayout();
     if (!data) { setStatus('保存データがありません'); return; }
-    applyLayout(data, { scene, room, furnitureList, selector, swatchButtons });
+    applyLayout(data, { scene, room, furnitureList, selector, swatchButtons, isAdmin });
     syncRoomUI();
     setStatus('レイアウトを読み込みました');
   });
@@ -688,6 +681,8 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
               ceilingVisible: room.ceiling.visible },
       // export は serializeFurniture に統一(quaternion込みで向きの精度を保つ)
       furniture: furnitureList.map(serializeFurniture),
+      // 訪問者向け NPC 配置パターン (管理者の localStorage に保存されているもの)
+      visitorNpcPatterns: loadPatterns(),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -708,7 +703,12 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      applyLayout(data, { scene, room, furnitureList, selector, swatchButtons });
+      applyLayout(data, { scene, room, furnitureList, selector, swatchButtons, isAdmin });
+      // インポートされたJSONに visitorNpcPatterns があれば localStorage にも保存
+      if (Array.isArray(data.visitorNpcPatterns)) {
+        savePatterns(data.visitorNpcPatterns);
+        renderNpcPatternList?.();
+      }
       syncRoomUI();
       setStatus(`${file.name} を読み込みました`);
     } catch (err) {
@@ -716,6 +716,93 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
     }
     e.target.value = ''; // 同じファイルを再選択可能にする
   });
+
+  // --- NPC配置パターン管理 (管理者のみ機能)
+  let renderNpcPatternList = null;
+  {
+    const listEl = document.getElementById('npc-pattern-list');
+    const nameInput = document.getElementById('npc-pattern-name');
+    const saveBtn = document.getElementById('npc-pattern-save');
+    if (listEl && saveBtn) {
+      renderNpcPatternList = function () {
+        const patterns = loadPatterns();
+        listEl.innerHTML = '';
+        if (patterns.length === 0) {
+          const empty = document.createElement('div');
+          empty.style.cssText = 'color:#7a8898;font-size:11px;padding:6px 0;';
+          empty.textContent = 'パターン未登録';
+          listEl.appendChild(empty);
+          return;
+        }
+        patterns.forEach((p, i) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;gap:4px;align-items:center;padding:4px 6px;background:#2a2d33;border:1px solid #3a3f48;border-radius:4px;';
+          const label = document.createElement('span');
+          label.textContent = `${i + 1}. ${p.name || '(無題)'} (${(p.npcs || []).length}人)`;
+          label.style.cssText = 'flex:1;font-size:11px;color:#cfd8e3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+          row.appendChild(label);
+
+          const applyBtn = document.createElement('button');
+          applyBtn.textContent = '適用';
+          applyBtn.style.cssText = 'padding:3px 8px;background:#3a6ea5;color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+          applyBtn.addEventListener('click', () => {
+            // 現在の NPC を消して、選択したパターンを適用 (プレビュー)
+            for (const o of [...furnitureList]) {
+              if (isNpcType(o.userData?.furnitureType)) {
+                scene.remove(o);
+                disposeFurniture(o);
+              }
+            }
+            // furnitureList から NPC を取り除く
+            for (let j = furnitureList.length - 1; j >= 0; j--) {
+              if (isNpcType(furnitureList[j].userData?.furnitureType)) furnitureList.splice(j, 1);
+            }
+            for (const f of p.npcs || []) {
+              try {
+                const obj = deserializeFurniture(f);
+                scene.add(obj);
+                furnitureList.push(obj);
+              } catch (e) { console.warn(e); }
+            }
+            setStatus(`パターン「${p.name}」を適用しました`);
+          });
+          row.appendChild(applyBtn);
+
+          const delBtn = document.createElement('button');
+          delBtn.textContent = '削除';
+          delBtn.style.cssText = 'padding:3px 8px;background:#7a3a3a;color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+          delBtn.addEventListener('click', () => {
+            if (!confirm(`パターン「${p.name}」を削除しますか？`)) return;
+            const next = loadPatterns();
+            next.splice(i, 1);
+            savePatterns(next);
+            renderNpcPatternList();
+            setStatus('パターンを削除しました');
+          });
+          row.appendChild(delBtn);
+
+          listEl.appendChild(row);
+        });
+      };
+
+      saveBtn.addEventListener('click', () => {
+        const name = (nameInput?.value || '').trim() || `パターン${loadPatterns().length + 1}`;
+        const pattern = extractCurrentNpcsAsPattern(furnitureList, name);
+        if (pattern.npcs.length === 0) {
+          setStatus('NPCが配置されていません');
+          return;
+        }
+        const next = loadPatterns();
+        next.push(pattern);
+        savePatterns(next);
+        if (nameInput) nameInput.value = '';
+        renderNpcPatternList();
+        setStatus(`パターン「${name}」を保存しました (${pattern.npcs.length}人)`);
+      });
+
+      renderNpcPatternList();
+    }
+  }
 
   document.getElementById('reset-btn').addEventListener('click', () => {
     if (!confirm('全ての家具・ドア・窓を削除します。よろしいですか？')) return;
@@ -733,22 +820,34 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
   // 優先順位: localStorageの保存 > バンドルされたdefault_layout.json > 空
   // default_layout.json は管理者がエクスポートしたJSONを public/ に置く想定
   (async () => {
+    // default_layout.json から visitorNpcPatterns を読み出して localStorage を初期化したい
+    // ため、localStorage 復元前であっても fetch して seed する。
+    let bundled = null;
+    try {
+      const res = await fetch('default_layout.json', { cache: 'no-cache' });
+      if (res.ok) bundled = await res.json();
+    } catch {}
+    if (bundled && Array.isArray(bundled.visitorNpcPatterns)) {
+      seedPatternsIfEmpty(bundled.visitorNpcPatterns);
+    }
+
     const existing = loadLayout();
     if (existing) {
-      applyLayout(existing, { scene, room, furnitureList, selector, swatchButtons });
+      // localStorage のレイアウト自体は visitorNpcPatterns を持っていない可能性が高いので
+      // bundled 側のフィールドを継承してあげる(訪問者モードのNPC除外条件で必要)
+      if (bundled?.visitorNpcPatterns && !existing.visitorNpcPatterns) {
+        existing.visitorNpcPatterns = bundled.visitorNpcPatterns;
+      }
+      applyLayout(existing, { scene, room, furnitureList, selector, swatchButtons, isAdmin });
       syncRoomUI();
       setStatus('前回のレイアウトを復元しました');
       return;
     }
-    try {
-      const res = await fetch('default_layout.json', { cache: 'no-cache' });
-      if (!res.ok) return;
-      const data = await res.json();
-      applyLayout(data, { scene, room, furnitureList, selector, swatchButtons });
+    if (bundled) {
+      applyLayout(bundled, { scene, room, furnitureList, selector, swatchButtons, isAdmin });
       syncRoomUI();
       setStatus('デフォルトのオフィスを読み込みました');
-    } catch (e) {
-      // default_layout.json が無い or 不正 → 空の部屋のまま起動
+    } else {
       console.info('No default_layout.json found, starting empty.');
     }
   })();
@@ -801,16 +900,21 @@ function applyPhotoPreset({ scene, room, furnitureList, selector, swatchButtons 
       { type: 'aircon', position: [0, 2.3, -1.69], rotationY: 0, scale: [1, 1, 1], fixedY: 2.3 },
     ],
   };
-  applyLayout(layout, { scene, room, furnitureList, selector, swatchButtons });
+  applyLayout(layout, { scene, room, furnitureList, selector, swatchButtons, isAdmin: true });
 }
 
-function applyLayout(data, { scene, room, furnitureList, selector, swatchButtons }) {
+function applyLayout(data, { scene, room, furnitureList, selector, swatchButtons, isAdmin = true }) {
   selector.deselect();
   for (const m of [...furnitureList]) {
     scene.remove(m);
     disposeFurniture(m);
   }
   furnitureList.length = 0;
+
+  // 訪問者モードかつ visitorNpcPatterns がある場合、家具配置からNPCを除外する。
+  // NPC 自体は「オフィスに入る」ボタン押下時にランダムパターンとして上乗せされる。
+  const hasPatterns = Array.isArray(data.visitorNpcPatterns) && data.visitorNpcPatterns.length > 0;
+  const stripNpcs = !isAdmin && hasPatterns;
 
   if (data.room) {
     if (data.room.shape) room.shape = data.room.shape;
@@ -852,6 +956,7 @@ function applyLayout(data, { scene, room, furnitureList, selector, swatchButtons
     else if (data.room.ceilingVisible === true) room.setCeilingVisible(true);
   }
   for (const f of data.furniture || []) {
+    if (stripNpcs && isNpcType(f.type)) continue;
     try {
       const obj = deserializeFurniture(f);
       // 内壁は通常 room.wallMaterial を共有(壁紙連動)するが、個別色オーバーライドが

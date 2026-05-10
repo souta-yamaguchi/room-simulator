@@ -259,6 +259,23 @@
           </div>
         </details>
 
+        <details class="panel">
+          <summary><h2>NPC配置パターン</h2></summary>
+          <div class="panel-body">
+            <p style="font-size:11px;color:#8aa;margin:0 0 8px;line-height:1.5;">
+              訪問者が「オフィスに入る」を押すたびに、保存したパターンから1つランダム選ばれて社長/社員Yの配置が決まります。
+            </p>
+            <div class="row" style="display:flex;gap:6px;align-items:center;">
+              <input id="npc-pattern-name" type="text" placeholder="パターン名(例: 朝礼中)" style="flex:1;padding:6px;background:#2f333b;color:#eee;border:1px solid #3a3f48;border-radius:4px;font-size:12px;" />
+            </div>
+            <div class="actions" style="margin-top:6px;">
+              <button id="npc-pattern-save" style="background:#3a8b6e;">現在のNPC配置を保存</button>
+            </div>
+            <div class="subhead" style="margin-top:10px;">保存済みパターン</div>
+            <div id="npc-pattern-list" style="display:flex;flex-direction:column;gap:4px;font-size:12px;"></div>
+          </div>
+        </details>
+
         <details class="panel" open>
           <summary><h2>プリセット・操作</h2></summary>
           <div class="panel-body">

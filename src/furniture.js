@@ -53,6 +53,10 @@ export const FURNITURE_PRESETS = {
   wrestlingBelt:       { label: 'プロレスベルト',   size: [0.55, 0.06, 0.18] },
   wrestlingMask:       { label: 'プロレスマスク',   size: [0.18, 0.24, 0.20] },
   wrestlingPhotoFrame: { label: 'サイン入り写真',   size: [0.22, 0.28, 0.04] },
+  // 素材系
+  woodPlank: { label: '木の板',     size: [0.80, 0.04, 0.20] },
+  ironRod:   { label: '鉄の棒(縦)', size: [0.06, 1.50, 0.06] },
+  coffeeMug: { label: 'マグカップ', size: [0.13, 0.11, 0.10] },
 };
 
 // 部屋の構造要素（壁に付ける系）。配置時に壁を突き抜けるのでclamp対象外。
@@ -811,6 +815,129 @@ function buildWrestlingPhotoFrame() {
   standLeg.position.set(0, 0.105, -0.062);
   standLeg.rotation.x = -0.38;
   group.add(standLeg);
+
+  return group;
+}
+
+function buildWoodPlank() {
+  const group = new THREE.Group();
+  const plankMat = woodMat('#a87a48', [2.5, 1]);
+  const plank = makePart(0.80, 0.04, 0.20, plankMat, 0.004);
+  plank.position.y = 0.02;
+  group.add(plank);
+
+  // 端の小口を少し濃いめに見せる縁
+  const edgeMat = woodMat('#7a5430', [0.3, 0.3]);
+  const endL = makePart(0.012, 0.04, 0.20, edgeMat, 0.002);
+  endL.position.set(-0.394, 0.02, 0);
+  group.add(endL);
+  const endR = makePart(0.012, 0.04, 0.20, edgeMat, 0.002);
+  endR.position.set(0.394, 0.02, 0);
+  group.add(endR);
+
+  return group;
+}
+
+function buildIronRod() {
+  const group = new THREE.Group();
+  const ironMat = new THREE.MeshStandardMaterial({
+    color: 0x6e7479, roughness: 0.45, metalness: 0.85,
+  });
+  const capMat = new THREE.MeshStandardMaterial({
+    color: 0x4a4f54, roughness: 0.4, metalness: 0.9,
+  });
+
+  // 本体（円柱）
+  const rodGeo = new THREE.CylinderGeometry(0.025, 0.025, 1.46, 24);
+  const rod = new THREE.Mesh(rodGeo, ironMat);
+  rod.position.y = 0.75;
+  rod.castShadow = true;
+  rod.receiveShadow = true;
+  group.add(rod);
+
+  // 上下のキャップ
+  const capTopGeo = new THREE.CylinderGeometry(0.030, 0.028, 0.020, 24);
+  const capTop = new THREE.Mesh(capTopGeo, capMat);
+  capTop.position.y = 1.49;
+  capTop.castShadow = true;
+  group.add(capTop);
+
+  // 接地ベース（倒れないようにわずかに広い円盤）
+  const baseGeo = new THREE.CylinderGeometry(0.055, 0.060, 0.020, 24);
+  const base = new THREE.Mesh(baseGeo, capMat);
+  base.position.y = 0.010;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  group.add(base);
+
+  return group;
+}
+
+function buildCoffeeMug() {
+  const group = new THREE.Group();
+  const mugMat = new THREE.MeshStandardMaterial({
+    color: 0xf6f1e8, roughness: 0.45, metalness: 0.05,
+  });
+  const innerMat = new THREE.MeshStandardMaterial({
+    color: 0xe8e0d0, roughness: 0.55, metalness: 0,
+    side: THREE.DoubleSide,
+  });
+  const coffeeMat = new THREE.MeshStandardMaterial({
+    color: 0x3a1f0a, roughness: 0.25, metalness: 0.0,
+  });
+
+  const bodyR = 0.040;
+  const bodyH = 0.095;
+
+  // 外側胴体（少し下すぼまり）
+  const bodyGeo = new THREE.CylinderGeometry(bodyR, bodyR * 0.92, bodyH, 28, 1, false);
+  const body = new THREE.Mesh(bodyGeo, mugMat);
+  body.position.y = bodyH / 2 + 0.005;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  // 内側のくぼみ（上端から少し凹ませる）
+  const innerR = bodyR - 0.005;
+  const innerH = bodyH - 0.012;
+  const innerGeo = new THREE.CylinderGeometry(innerR, innerR * 0.92, innerH, 28, 1, true);
+  const inner = new THREE.Mesh(innerGeo, innerMat);
+  inner.position.y = bodyH / 2 + 0.005 + 0.003;
+  group.add(inner);
+
+  // 底（内側の見切り）
+  const bottomGeo = new THREE.CircleGeometry(innerR * 0.92, 28);
+  const bottom = new THREE.Mesh(bottomGeo, innerMat);
+  bottom.rotation.x = -Math.PI / 2;
+  bottom.position.y = 0.005 + 0.01;
+  group.add(bottom);
+
+  // コーヒー液面
+  const coffeeGeo = new THREE.CircleGeometry(innerR - 0.002, 28);
+  const coffee = new THREE.Mesh(coffeeGeo, coffeeMat);
+  coffee.rotation.x = -Math.PI / 2;
+  coffee.position.y = bodyH - 0.008;
+  group.add(coffee);
+
+  // 取っ手（半円トーラス）
+  const handleGeo = new THREE.TorusGeometry(0.022, 0.006, 12, 24, Math.PI);
+  const handle = new THREE.Mesh(handleGeo, mugMat);
+  handle.position.set(bodyR + 0.001, bodyH * 0.55 + 0.005, 0);
+  handle.rotation.y = Math.PI / 2;
+  handle.rotation.x = Math.PI / 2;
+  handle.castShadow = true;
+  group.add(handle);
+
+  // 受け皿（コースター風の薄い円盤）
+  const saucerMat = new THREE.MeshStandardMaterial({
+    color: 0xe6dccb, roughness: 0.5, metalness: 0.04,
+  });
+  const saucerGeo = new THREE.CylinderGeometry(0.062, 0.058, 0.008, 28);
+  const saucer = new THREE.Mesh(saucerGeo, saucerMat);
+  saucer.position.y = 0.004;
+  saucer.castShadow = true;
+  saucer.receiveShadow = true;
+  group.add(saucer);
 
   return group;
 }
@@ -3521,6 +3648,9 @@ const BUILDERS = {
   wrestlingBelt: buildWrestlingBelt,
   wrestlingMask: buildWrestlingMask,
   wrestlingPhotoFrame: buildWrestlingPhotoFrame,
+  woodPlank: buildWoodPlank,
+  ironRod: buildIronRod,
+  coffeeMug: buildCoffeeMug,
 };
 
 const ALL_PRESETS = { ...FURNITURE_PRESETS, ...DESIGN_PRESETS };
@@ -3589,6 +3719,20 @@ function applyColorOverride(obj, hex) {
     }
   });
   obj.userData.colorOverride = hex;
+}
+
+// メモリ解放: シーンから取り除く前に呼ぶこと
+export function disposeFurniture(obj) {
+  obj.traverse((child) => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      for (const m of mats) {
+        if (m.map) m.map.dispose();
+        m.dispose();
+      }
+    }
+  });
 }
 
 export function deserializeFurniture(data) {
