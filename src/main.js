@@ -161,7 +161,7 @@ setupUI({ scene, room, furnitureList, selector, setStatus, camera, orbit, walkMo
 
 // --- 訪問者モードではサイドバーを隠し、welcomeオーバーレイから一人称に直行
 // タッチデバイスで?admin=...でアクセスされた場合、警告オーバーレイを表示
-if (IS_ADMIN_REQUESTED && IS_TOUCH) {
+if (urlParams.has('admin') && IS_TOUCH) {
   const warn = document.getElementById('mobile-admin-warn');
   if (warn) warn.style.display = 'block';
   document.getElementById('mobile-admin-continue')?.addEventListener('click', () => {
