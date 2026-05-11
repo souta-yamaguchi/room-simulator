@@ -104,6 +104,19 @@ export function showNpcSpeech(npc, containerEl, duration = 4500) {
   });
 }
 
+// 任意の対象オブジェクト(NPC/ペット/家具)に固定文言の吹き出しを出す。
+// updateBubbles は対象の userData.isPet を見て高さを調整する。
+export function showCustomSpeech(target, text, containerEl, duration = 4500) {
+  const existing = activeBubbles.get(target);
+  if (existing) existing.element.remove();
+  const el = createBubbleElement(text);
+  containerEl.appendChild(el);
+  activeBubbles.set(target, {
+    element: el,
+    hideAt: performance.now() + duration,
+  });
+}
+
 // animate ループから毎フレーム呼び出し: 各吹き出しの画面位置を更新
 export function updateBubbles(camera, containerEl) {
   if (activeBubbles.size === 0) return;
