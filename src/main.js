@@ -24,18 +24,20 @@ export const ADMIN_PWD_STORAGE = 'roomsim_admin_pwd_v1';
 const urlParams = new URLSearchParams(window.location.search);
 const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 
+// URL に ?admin が付いている時だけ管理者モードを試行する。
+//   ?admin 無し → 訪問者モード(localStorage に保存済みでも自動管理者にはしない)
+//   ?admin あり + localStorage 認証あり → 管理者
+//   ?admin あり + 未認証 → ログインプロンプト → 成功で localStorage に保存
+//   localhost では Cloudflare Functions が無いので ?admin で即管理者扱い(パスワード不要)
 let IS_ADMIN = false;
-if (!IS_TOUCH) {
-  if (isLocalhost && urlParams.has('admin')) {
-    // 開発環境では URL に ?admin が付いていれば即管理者
+if (!IS_TOUCH && urlParams.has('admin')) {
+  if (isLocalhost) {
     IS_ADMIN = true;
   } else {
-    // 本番: localStorage に保存済みパスワードがあれば管理者
     const stored = localStorage.getItem(ADMIN_PWD_STORAGE);
-    if (stored) IS_ADMIN = true;
-
-    // 未ログインかつ URL に ?admin が付いていればログインプロンプト → 成功で保存・リロード
-    if (!IS_ADMIN && urlParams.has('admin')) {
+    if (stored) {
+      IS_ADMIN = true;
+    } else {
       (async () => {
         const pwd = prompt('管理者パスワードを入力してください:');
         if (!pwd) return;
@@ -47,10 +49,7 @@ if (!IS_TOUCH) {
           });
           if (res.status === 200) {
             localStorage.setItem(ADMIN_PWD_STORAGE, pwd);
-            // URL から ?admin を除去してリロード
-            const url = new URL(location.href);
-            url.searchParams.delete('admin');
-            location.replace(url.toString());
+            location.reload();
           } else if (res.status === 401) {
             alert('パスワードが違います');
           } else if (res.status === 500) {
@@ -59,7 +58,7 @@ if (!IS_TOUCH) {
             alert(`ログイン失敗: HTTP ${res.status}`);
           }
         } catch (e) {
-          alert(`通信エラー: ${e.message}\nローカル環境では admin-login は使えません (localhost?admin で直接管理者になれます)`);
+          alert(`通信エラー: ${e.message}`);
         }
       })();
     }
