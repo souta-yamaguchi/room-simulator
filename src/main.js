@@ -16,14 +16,55 @@ import {
   removeNpcsFromScene, applyNpcPattern,
 } from './npcPatterns.js';
 
-// --- モード判定: ?admin=<ADMIN_KEY> 付きなら管理者モード、無ければ訪問者モード ---
-// 本番公開時、このキーを知っている人だけが管理者UIを触れる。
-// キーを変更したい場合はこの文字列を書き換えて再デプロイすること。
-const ADMIN_KEY = 'oyoyo-office-admin-2026';
+// --- モード判定 (パスワード認証式) ---
+// 本番: localStorage に保存されたパスワードを Cloudflare Function で検証して保存する
+//       ?admin が URL に付いていてかつ未ログインなら、ログインプロンプトを表示
+// localhost (開発): Cloudflare Functions が無いので ?admin で即管理者扱い
+export const ADMIN_PWD_STORAGE = 'roomsim_admin_pwd_v1';
 const urlParams = new URLSearchParams(window.location.search);
-const IS_ADMIN_REQUESTED = urlParams.get('admin') === ADMIN_KEY;
-// タッチデバイスでは管理者UIが事実上使えないので、自動的に訪問者扱いにする(警告は別途表示)
-const IS_ADMIN = IS_ADMIN_REQUESTED && !IS_TOUCH;
+const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
+let IS_ADMIN = false;
+if (!IS_TOUCH) {
+  if (isLocalhost && urlParams.has('admin')) {
+    // 開発環境では URL に ?admin が付いていれば即管理者
+    IS_ADMIN = true;
+  } else {
+    // 本番: localStorage に保存済みパスワードがあれば管理者
+    const stored = localStorage.getItem(ADMIN_PWD_STORAGE);
+    if (stored) IS_ADMIN = true;
+
+    // 未ログインかつ URL に ?admin が付いていればログインプロンプト → 成功で保存・リロード
+    if (!IS_ADMIN && urlParams.has('admin')) {
+      (async () => {
+        const pwd = prompt('管理者パスワードを入力してください:');
+        if (!pwd) return;
+        try {
+          const res = await fetch('/api/admin-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwd }),
+          });
+          if (res.status === 200) {
+            localStorage.setItem(ADMIN_PWD_STORAGE, pwd);
+            // URL から ?admin を除去してリロード
+            const url = new URL(location.href);
+            url.searchParams.delete('admin');
+            location.replace(url.toString());
+          } else if (res.status === 401) {
+            alert('パスワードが違います');
+          } else if (res.status === 500) {
+            alert('サーバー側で管理者パスワードが未設定です。Cloudflareの環境変数 ADMIN_PASSWORD を設定してください。');
+          } else {
+            alert(`ログイン失敗: HTTP ${res.status}`);
+          }
+        } catch (e) {
+          alert(`通信エラー: ${e.message}\nローカル環境では admin-login は使えません (localhost?admin で直接管理者になれます)`);
+        }
+      })();
+    }
+  }
+}
 
 const container = document.getElementById('canvas-wrap');
 const statusEl = document.getElementById('status');
