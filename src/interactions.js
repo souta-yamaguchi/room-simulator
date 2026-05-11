@@ -79,23 +79,82 @@ export function updateInteractions(dt, furnitureList, ctx = null) {
   }
 }
 
+function smoothStep(t) {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
 function updateOjoyoGame(group, dt, furnitureList, ctx) {
   const s = group.userData.ojoyo;
   if (!s || !s.isShuffling) return;
   s.animPhase = Math.min(1, s.animPhase + dt / OJOYO_DURATION);
   const p = s.animPhase;
 
+  // Y リフト：序盤に上昇、中盤キープ、終盤に着地
+  let lift;
+  if (p < 0.15) lift = (p / 0.15) * OJOYO_LIFT;
+  else if (p < 0.85) lift = OJOYO_LIFT;
+  else lift = (1 - (p - 0.85) / 0.15) * OJOYO_LIFT;
+
   for (let k = 0; k < s.cards.length; k++) {
     const card = s.cards[k];
     const baseY = card.userData.baseY ?? card.position.y;
-    // 持ち上げ (sin で滑らかに上下)
-    const lift = Math.sin(Math.min(1, Math.max(0, p)) * Math.PI) * OJOYO_LIFT;
-    card.position.y = baseY + lift;
-    // 水平移動 (0.2..0.8 の区間で fromXs → toXs)
-    const tx = Math.min(1, Math.max(0, (p - 0.2) / 0.6));
-    card.position.x = s.fromXs[k] + (s.toXs[k] - s.fromXs[k]) * tx;
-    // ちょっとくるっと回す
-    const spin = Math.sin(Math.min(1, Math.max(0, (p - 0.15) / 0.7)) * Math.PI) * 0.6;
+
+    // X 位置: from → 0 (集合) → 中央でホールド → to (散開)
+    let x;
+    if (p < OJOYO_GATHER_END) {
+      // 集合フェーズ
+      const t = smoothStep(p / OJOYO_GATHER_END);
+      x = s.fromXs[k] * (1 - t);
+    } else if (p < OJOYO_HOLD_END) {
+      // 中央でホールド
+      x = 0;
+    } else {
+      // 散開フェーズ
+      const t = smoothStep((p - OJOYO_HOLD_END) / (1 - OJOYO_HOLD_END));
+      x = s.toXs[k] * t;
+    }
+    card.position.x = x;
+
+    // 中央集合時の Z 微オフセット（重ね順を分けて z-fight 回避 + 山積み感）
+    let zOff = 0;
+    let yStack = 0;
+    if (p >= OJOYO_GATHER_END * 0.5 && p <= OJOYO_HOLD_END + (1 - OJOYO_HOLD_END) * 0.4) {
+      // 中央付近にいる時間帯はカードごとに微妙にずらす
+      let factor;
+      if (p < OJOYO_GATHER_END) {
+        factor = (p - OJOYO_GATHER_END * 0.5) / (OJOYO_GATHER_END * 0.5);
+      } else if (p < OJOYO_HOLD_END) {
+        factor = 1;
+      } else {
+        factor = 1 - (p - OJOYO_HOLD_END) / ((1 - OJOYO_HOLD_END) * 0.4);
+      }
+      factor = Math.max(0, Math.min(1, factor));
+      zOff = (k - 1) * 0.015 * factor;
+      yStack = k * 0.005 * factor;
+    }
+    card.position.z = zOff;
+    card.position.y = baseY + lift + yStack;
+
+    // 回転: 中央で各カード違う方向にぐるぐる、最後は0に戻る
+    let spin;
+    if (p < OJOYO_GATHER_END) {
+      // 集合中に少しずつ回し始める
+      spin = (p / OJOYO_GATHER_END) * Math.PI * 0.6 * (k % 2 === 0 ? 1 : -1);
+    } else if (p < OJOYO_HOLD_END) {
+      // 中央で回転を増やす
+      const t = (p - OJOYO_GATHER_END) / (OJOYO_HOLD_END - OJOYO_GATHER_END);
+      const base = Math.PI * 0.6 * (k % 2 === 0 ? 1 : -1);
+      spin = base + t * Math.PI * 2 * (k % 2 === 0 ? 1 : -1) + k * 0.25;
+    } else {
+      // 散開中に 0 へ戻す
+      const t = (p - OJOYO_HOLD_END) / (1 - OJOYO_HOLD_END);
+      const peak = Math.PI * 0.6 * (k % 2 === 0 ? 1 : -1)
+                 + Math.PI * 2 * (k % 2 === 0 ? 1 : -1)
+                 + k * 0.25;
+      spin = peak * (1 - t);
+    }
     card.rotation.y = spin;
   }
 
@@ -103,11 +162,11 @@ function updateOjoyoGame(group, dt, furnitureList, ctx) {
     // アニメ完了: 状態を確定
     s.isShuffling = false;
     s.cardChars = s.nextChars.slice();
-    // カードの並び自体は物理移動済み (各 card は対応する slot にいる)
     // 念のため最終位置に揃える
     for (let k = 0; k < s.cards.length; k++) {
       s.cards[k].position.x = s.toXs[k];
       s.cards[k].position.y = s.cards[k].userData.baseY;
+      s.cards[k].position.z = 0;
       s.cards[k].rotation.y = 0;
     }
     s.fromXs = s.cards.map((c) => c.position.x);
