@@ -17,7 +17,8 @@ const DOG_LINES = [
   'はぐっ！すごい！すごい！',
 ];
 
-const SUMMON_DURATION_MS = 6000;   // 召喚状態(障害物無視・移動停止)を維持する時間
+const TRAVEL_MS = 1500;            // 足元へ走ってくる時間
+const STAY_MS = 6000;              // 到着後その場で停止する時間
 const FOOT_FWD = 0.45;             // 足元の前方オフセット
 const FOOT_SIDE = 0.50;            // 左右足元の幅 (中心から両側へ)
 
