@@ -175,7 +175,7 @@ function updateOjoyoGame(group, dt, furnitureList, ctx) {
     const order = orderByX(s.cards);
     if (order === 'オヨヨ') {
       if (ctx?.container) {
-        try { triggerOjoyoWin(furnitureList, ctx.container); }
+        try { triggerOjoyoWin(furnitureList, ctx.container, ctx.camera); }
         catch (e) { console.warn('ojoyo win effect failed', e); }
       }
     }
