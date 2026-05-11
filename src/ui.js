@@ -852,9 +852,11 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
         if (res.status === 200 && data?.ok) {
           setStatus(`✅ 本番反映トリガー成功 (${data.commit?.slice(0,7) || 'commit'}). 2-3分後に反映されます`);
         } else if (res.status === 401) {
-          localStorage.removeItem(DEPLOY_KEY_STORAGE);
-          setStatus('❌ パスフレーズが違います。次回もう一度入力してください');
-          alert('デプロイ用パスフレーズが違います。\n保存したキーを破棄しました。次回ボタンを押すと再入力できます。');
+          localStorage.removeItem(ADMIN_PWD_STORAGE);
+          setStatus('❌ 認証失敗。再ログインが必要です');
+          alert('管理者パスワードが無効になりました。\n保存した認証情報を破棄しました。\nURL に ?admin を付けて再ログインしてください。');
+          // ページを再読み込みして訪問者モードに戻す
+          setTimeout(() => location.reload(), 500);
         } else if (res.status === 404) {
           setStatus('❌ API が見つかりません (ローカル環境では未対応・本番でお試しください)');
         } else {
