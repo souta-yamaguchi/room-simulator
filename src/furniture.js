@@ -5,6 +5,7 @@ import {
   makeWoodTextureFurniture, makeFabricTexture,
   makeGeometricPatternTexture, makeFloralPatternTexture, makeNordicPatternTexture,
   makeWrestlingBeltPlateTexture, makeWrestlingPhotoTexture,
+  makeCardTexture,
 } from './textures.js';
 import { IS_TOUCH } from './mobileControls.js';
 
@@ -57,6 +58,8 @@ export const FURNITURE_PRESETS = {
   woodPlank: { label: '木の板',     size: [0.80, 0.04, 0.20] },
   ironRod:   { label: '鉄の棒(縦)', size: [0.06, 1.50, 0.06] },
   coffeeMug: { label: 'マグカップ', size: [0.13, 0.11, 0.10] },
+  // ミニゲーム
+  ojoyoGame: { label: 'オヨヨカード', size: [0.36, 0.012, 0.16] },
 };
 
 // 部屋の構造要素（壁に付ける系）。配置時に壁を突き抜けるのでclamp対象外。
@@ -938,6 +941,75 @@ function buildCoffeeMug() {
   saucer.castShadow = true;
   saucer.receiveShadow = true;
   group.add(saucer);
+
+  return group;
+}
+
+// 「オヨヨ」カードゲーム
+// オ1枚 + ヨ2枚 がテーブル上に並ぶ。クリックでシャッフル → 並びが「オヨヨ」になったらクリア。
+// 勝敗判定とクリア演出は interactions.js → ojoyoWin.js が担う。
+function buildOjoyoGame() {
+  const group = new THREE.Group();
+  const CHARS = ['オ', 'ヨ', 'ヨ'];
+  const SLOT_XS = [-0.12, 0, 0.12];
+  const CARD_W = 0.10, CARD_H = 0.006, CARD_D = 0.14;
+
+  const sideMat = new THREE.MeshStandardMaterial({
+    color: 0xf2eadc, roughness: 0.6, metalness: 0.05,
+  });
+
+  // 受け皿(薄い木のトレイ)を敷いてゲーム感を出す
+  const trayMat = new THREE.MeshStandardMaterial({
+    color: 0x6a4a30, roughness: 0.7, metalness: 0.1,
+  });
+  const tray = makePart(0.36, 0.008, 0.16, trayMat, 0.005);
+  tray.position.y = 0.004;
+  group.add(tray);
+
+  const cards = [];
+  for (let i = 0; i < 3; i++) {
+    const ch = CHARS[i];
+    const tex = makeCardTexture(ch);
+    const topMat = new THREE.MeshStandardMaterial({
+      map: tex, roughness: 0.55, metalness: 0.05,
+    });
+    // 6面のうち上(+Y)だけテクスチャ、他はクリーム色
+    const materials = [
+      sideMat, // +X
+      sideMat, // -X
+      topMat,  // +Y (上面)
+      sideMat, // -Y
+      sideMat, // +Z
+      sideMat, // -Z
+    ];
+    const geo = new THREE.BoxGeometry(CARD_W, CARD_H, CARD_D);
+    const card = new THREE.Mesh(geo, materials);
+    card.position.set(SLOT_XS[i], 0.008 + CARD_H / 2, 0);
+    card.castShadow = true;
+    card.receiveShadow = true;
+    card.userData.role = 'ojoyoCard';
+    card.userData.char = ch;
+    card.userData.baseY = card.position.y;
+    card.userData.baseRotY = 0;
+    group.add(card);
+    cards.push(card);
+  }
+
+  // インタラクト設定
+  group.userData.interactive = true;
+  group.userData.interactionKind = 'ojoyoGame';
+  group.userData.ojoyo = {
+    cards,
+    slotXs: SLOT_XS.slice(),
+    cardChars: CHARS.slice(),
+    isShuffling: false,
+    animPhase: 0,
+    duration: 1.2,
+    fromXs: SLOT_XS.slice(),
+    toXs: SLOT_XS.slice(),
+    nextChars: CHARS.slice(),
+    permutation: [0, 1, 2],
+  };
 
   return group;
 }
@@ -3651,6 +3723,7 @@ const BUILDERS = {
   woodPlank: buildWoodPlank,
   ironRod: buildIronRod,
   coffeeMug: buildCoffeeMug,
+  ojoyoGame: buildOjoyoGame,
 };
 
 const ALL_PRESETS = { ...FURNITURE_PRESETS, ...DESIGN_PRESETS };
@@ -3674,6 +3747,8 @@ export function createFurniture(type) {
       // 机上の小物 (プロレス系飾り)
       type === 'wrestlingBelt' || type === 'wrestlingMask' ||
       type === 'wrestlingPhotoFrame' ||
+      // 机上のミニゲーム
+      type === 'ojoyoGame' ||
       // ラグ類は床に置く平らな飾り。プレイヤー/ペットの当たり判定対象外。
       type === 'rug' || type === 'rug_geo' || type === 'rug_floral' ||
       type === 'rug_nordic' || type === 'rug_round' || type === 'rug_patchwork') {
