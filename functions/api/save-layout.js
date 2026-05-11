@@ -3,10 +3,11 @@
 // 訪問者URLに反映される。
 //
 // 必要な環境変数 (Cloudflare Pages > Settings > Environment variables, 全て暗号化):
-//   GITHUB_TOKEN  : Fine-grained PAT (Contents: Read & write)
-//   GITHUB_REPO   : "souta-yamaguchi/room-simulator"
-//   GITHUB_BRANCH : "main"
-//   DEPLOY_KEY    : 山口さんが決めるパスフレーズ。管理者UIから送信される値と一致必須
+//   GITHUB_TOKEN   : Fine-grained PAT (Contents: Read & write)
+//   GITHUB_REPO    : "souta-yamaguchi/room-simulator"
+//   GITHUB_BRANCH  : "main"
+//   ADMIN_PASSWORD : 山口さんが決める管理者パスワード。管理者ログイン時の認証値と同じ
+//                    (管理者UIからログインで保存された値を X-Deploy-Key として送信)
 
 const TARGET_PATH = 'public/default_layout.json';
 
