@@ -805,19 +805,17 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
   }
 
   // --- 本番反映ボタン (Cloudflare Pages Function 経由で GitHub commit → 自動デプロイ)
-  const DEPLOY_KEY_STORAGE = 'room_deploy_key_v1';
+  // 管理者ログイン時に localStorage に保存された ADMIN_PWD をそのまま X-Deploy-Key に流用する。
+  const ADMIN_PWD_STORAGE = 'roomsim_admin_pwd_v1';
   const deployBtn = document.getElementById('deploy-btn');
   if (deployBtn) {
     deployBtn.addEventListener('click', async () => {
       if (!confirm('本番サイト (room-simulator.pages.dev) に現在の編集内容を反映します。\nGitHubへ自動コミットされ、2-3分後に公開されます。\n\nよろしいですか？')) return;
 
-      let deployKey = localStorage.getItem(DEPLOY_KEY_STORAGE);
+      const deployKey = localStorage.getItem(ADMIN_PWD_STORAGE);
       if (!deployKey) {
-        deployKey = prompt('デプロイ用パスフレーズを入力してください (初回のみ・Cloudflareの環境変数 DEPLOY_KEY と同じ文字列)');
-        if (!deployKey) return;
-        deployKey = deployKey.trim();
-        if (!deployKey) return;
-        localStorage.setItem(DEPLOY_KEY_STORAGE, deployKey);
+        alert('管理者ログインが必要です。\nURL の末尾に ?admin を付けてアクセスし、パスワードを入力してください。');
+        return;
       }
 
       const wallMatNoMap = room.wallMaterial && !room.wallMaterial.map;
