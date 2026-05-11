@@ -873,6 +873,16 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
     });
   }
 
+  // --- 管理者ログアウト
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      if (!confirm('管理者からログアウトしますか？\n(訪問者モードに戻ります)')) return;
+      localStorage.removeItem('roomsim_admin_pwd_v1');
+      location.replace(location.pathname);
+    });
+  }
+
   document.getElementById('reset-btn').addEventListener('click', () => {
     if (!confirm('全ての家具・ドア・窓を削除します。よろしいですか？')) return;
     selector.deselect();
