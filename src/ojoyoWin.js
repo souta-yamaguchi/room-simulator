@@ -79,20 +79,25 @@ function computeFootPositions(camera) {
   return { leftFoot, rightFoot, camPos };
 }
 
-// ペット1体を指定位置にテレポートし、プレイヤーの方を向かせ、召喚フラグを立てる
+// ペット1体に「足元まで走ってくる」アニメ状態をセットする。
+// 障害物無視のスムーズ補間は livings.js 側で行う。
 function summonPetToFoot(pet, foot, camPos) {
-  pet.position.set(foot.x, 0, foot.z);
-  // プレイヤーの方へ顔を向ける
-  const dx = camPos.x - pet.position.x;
-  const dz = camPos.z - pet.position.z;
-  pet.rotation.y = Math.atan2(dx, dz);
-  // 召喚状態: livings.js / pet.js 側で参照されて移動・衝突解消をスキップ
-  pet.userData.celebrating = performance.now() + SUMMON_DURATION_MS;
-  // ペットの行動状態をリセット (歩行ターゲットを破棄)
+  const startMs = performance.now();
+  pet.userData.summoning = {
+    fromX: pet.position.x,
+    fromZ: pet.position.z,
+    toX: foot.x,
+    toZ: foot.z,
+    camX: camPos.x,
+    camZ: camPos.z,
+    startMs,
+    durationMs: TRAVEL_MS,
+  };
+  // 召喚状態(障害物無視・移動停止)：走ってくる時間 + 到着後の停止時間
+  pet.userData.celebrating = startMs + TRAVEL_MS + STAY_MS;
   if (pet.userData.petState) {
-    pet.userData.petState.mode = 'sit';
     pet.userData.petState.target = null;
-    pet.userData.petState.modeTimer = SUMMON_DURATION_MS / 1000;
+    pet.userData.petState.modeTimer = (TRAVEL_MS + STAY_MS) / 1000;
   }
 }
 
