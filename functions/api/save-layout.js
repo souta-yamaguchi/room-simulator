@@ -40,13 +40,13 @@ function toBase64(str) {
 }
 
 export async function onRequestPost({ request, env }) {
-  // --- 認可
+  // --- 認可: 管理者ログインで使ったパスワードが localStorage 経由で送られてくる
   const key = request.headers.get('X-Deploy-Key');
-  if (!env.DEPLOY_KEY) {
-    return jsonResponse(500, { ok: false, error: 'server: DEPLOY_KEY not configured' });
+  if (!env.ADMIN_PASSWORD) {
+    return jsonResponse(500, { ok: false, error: 'server: ADMIN_PASSWORD not configured' });
   }
-  if (!key || key !== env.DEPLOY_KEY) {
-    return jsonResponse(401, { ok: false, error: 'invalid deploy key' });
+  if (!key || key !== env.ADMIN_PASSWORD) {
+    return jsonResponse(401, { ok: false, error: 'invalid password (please re-login)' });
   }
 
   // --- ペイロード取得
