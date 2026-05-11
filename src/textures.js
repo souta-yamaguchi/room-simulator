@@ -786,3 +786,52 @@ export function makeSkyTexture(opts = {}) {
   tex.needsUpdate = true;
   return tex;
 }
+
+// 「オヨヨ」カードゲーム用: 白カードに太字でカタカナ1文字
+export function makeCardTexture(char) {
+  const W = 256, H = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // 背景：白
+  ctx.fillStyle = '#fdfaf2';
+  ctx.fillRect(0, 0, W, H);
+
+  // 外枠 (赤の細枠+黒の太枠)
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#222';
+  ctx.strokeRect(8, 8, W - 16, H - 16);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#c8323a';
+  ctx.strokeRect(18, 18, W - 36, H - 36);
+
+  // 四隅に小さな飾り (鉤かっこ風)
+  ctx.strokeStyle = '#c8323a';
+  ctx.lineWidth = 3;
+  const cs = 26;
+  function corner(x, y, dx, dy) {
+    ctx.beginPath();
+    ctx.moveTo(x + dx * cs, y);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x, y + dy * cs);
+    ctx.stroke();
+  }
+  corner(30, 30, 1, 1);
+  corner(W - 30, 30, -1, 1);
+  corner(30, H - 30, 1, -1);
+  corner(W - 30, H - 30, -1, -1);
+
+  // 文字
+  ctx.fillStyle = '#1a1a1a';
+  ctx.font = 'bold 170px "Yu Gothic UI", "Meiryo", "MS Gothic", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(char, W / 2, H / 2 + 8);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.needsUpdate = true;
+  return tex;
+}
