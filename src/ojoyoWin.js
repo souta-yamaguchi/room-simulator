@@ -106,20 +106,25 @@ export function triggerOjoyoWin(furnitureList, containerEl, camera = null) {
   const dogs = furnitureList.filter((o) => o.userData?.furnitureType === 'dog');
 
   // 一人称(camera あり) かつ ペットが居る場合は足元へ召喚
+  let summoned = false;
   if (camera && (cats.length > 0 || dogs.length > 0)) {
     const { leftFoot, rightFoot, camPos } = computeFootPositions(camera);
     for (const c of cats) summonPetToFoot(c, leftFoot, camPos);
     for (const d of dogs) summonPetToFoot(d, rightFoot, camPos);
+    summoned = true;
   }
 
-  // 吹き出し
-  for (const c of cats) {
-    showCustomSpeech(c, pickRandom(CAT_LINES), containerEl, 5500);
-  }
-  for (const d of dogs) {
-    showCustomSpeech(d, pickRandom(DOG_LINES), containerEl, 5500);
-  }
-
-  // 中央バナー
+  // 中央バナーは即時表示
   showCenterBanner(containerEl, '🎉 オヨヨ揃った！クリア！ 🎉', 4500);
+
+  // 吹き出しは到着後に出す (走ってくる演出を邪魔しないため)
+  const bubbleDelay = summoned ? TRAVEL_MS : 0;
+  setTimeout(() => {
+    for (const c of cats) {
+      showCustomSpeech(c, pickRandom(CAT_LINES), containerEl, 5500);
+    }
+    for (const d of dogs) {
+      showCustomSpeech(d, pickRandom(DOG_LINES), containerEl, 5500);
+    }
+  }, bubbleDelay);
 }
