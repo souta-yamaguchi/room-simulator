@@ -6,8 +6,13 @@ import { getCurrentDialogNpc } from './npc.js';
 
 export function updateLivings(furnitureList, dt, t, room) {
   const talkingNpc = getCurrentDialogNpc(); // 喋ってるペット/NPCはAIを停止
+  const now = performance.now();
   for (const obj of furnitureList) {
     if (obj.userData?.isPet) {
+      // 「オヨヨクリア召喚」中は完全に動きを止め、障害物解消もスキップする
+      // (この間は障害物にぶつからない仕様)
+      const celebrateUntil = obj.userData.celebrating;
+      if (celebrateUntil && celebrateUntil > now) continue;
       // 喋ってる最中は歩行・動作を止める(話しかけてる間は動かない)
       if (obj !== talkingNpc) {
         updatePet(obj, dt, t, room, furnitureList);
