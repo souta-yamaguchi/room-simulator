@@ -572,7 +572,7 @@ function animate() {
   // 喋り中のNPC/ペットを常にカメラ方向に向ける(移動しても追従)
   updateTalkingFacing();
   // お遊びクリック要素(カーテン/蛇口等)のアニメ進行
-  updateInteractions(dt, furnitureList);
+  updateInteractions(dt, furnitureList, { container });
   // カーソル/クロスヘア下のNPC/ペット名を頭上に表示
   updateHoverLabel();
 
