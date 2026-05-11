@@ -1,6 +1,7 @@
 # 3D 部屋の模様替えシミュレーター
 
 ブラウザ上で部屋の形・家具・壁紙・ドア/窓を自由にレイアウトできる3Dアプリ。
+[![Cloudflare Pages](https://img.shields.io/badge/deploy-Cloudflare%20Pages-orange)](https://github.com/souta-yamaguchi/room-simulator)
 
 ## 特徴
 
