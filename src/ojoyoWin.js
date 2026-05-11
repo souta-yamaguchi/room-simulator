@@ -1,5 +1,7 @@
 // 「オヨヨ」カードゲームのクリア演出。
-// 猫と犬の吹き出しに喜びのセリフを表示する（テキストのみ、音は無し）。
+// 猫(左足元)と犬(右足元)が一人称プレイヤーの足元まで召喚され、
+// 喜びのセリフを吹き出しで表示する（音は無し）。
+import * as THREE from 'three';
 import { showCustomSpeech } from './npc.js';
 
 const CAT_LINES = [
@@ -14,6 +16,10 @@ const DOG_LINES = [
   'ワン！クリアだワン！',
   'はぐっ！すごい！すごい！',
 ];
+
+const SUMMON_DURATION_MS = 6000;   // 召喚状態(障害物無視・移動停止)を維持する時間
+const FOOT_FWD = 0.45;             // 足元の前方オフセット
+const FOOT_SIDE = 0.50;            // 左右足元の幅 (中心から両側へ)
 
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -50,17 +56,64 @@ function showCenterBanner(containerEl, text, duration = 4000) {
   setTimeout(() => el.remove(), duration);
 }
 
-export function triggerOjoyoWin(furnitureList, containerEl) {
+// プレイヤー(camera)の左右足元ワールド座標を計算
+function computeFootPositions(camera) {
+  const camPos = camera.position;
+  const fwd = new THREE.Vector3();
+  camera.getWorldDirection(fwd);
+  fwd.y = 0;
+  if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
+  fwd.normalize();
+  const up = new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3().crossVectors(fwd, up).normalize();
+
+  const leftFoot = new THREE.Vector3().copy(camPos)
+    .addScaledVector(fwd, FOOT_FWD)
+    .addScaledVector(right, -FOOT_SIDE);
+  const rightFoot = new THREE.Vector3().copy(camPos)
+    .addScaledVector(fwd, FOOT_FWD)
+    .addScaledVector(right, FOOT_SIDE);
+  leftFoot.y = 0;
+  rightFoot.y = 0;
+  return { leftFoot, rightFoot, camPos };
+}
+
+// ペット1体を指定位置にテレポートし、プレイヤーの方を向かせ、召喚フラグを立てる
+function summonPetToFoot(pet, foot, camPos) {
+  pet.position.set(foot.x, 0, foot.z);
+  // プレイヤーの方へ顔を向ける
+  const dx = camPos.x - pet.position.x;
+  const dz = camPos.z - pet.position.z;
+  pet.rotation.y = Math.atan2(dx, dz);
+  // 召喚状態: livings.js / pet.js 側で参照されて移動・衝突解消をスキップ
+  pet.userData.celebrating = performance.now() + SUMMON_DURATION_MS;
+  // ペットの行動状態をリセット (歩行ターゲットを破棄)
+  if (pet.userData.petState) {
+    pet.userData.petState.mode = 'sit';
+    pet.userData.petState.target = null;
+    pet.userData.petState.modeTimer = SUMMON_DURATION_MS / 1000;
+  }
+}
+
+export function triggerOjoyoWin(furnitureList, containerEl, camera = null) {
   const cats = furnitureList.filter((o) => o.userData?.furnitureType === 'cat');
   const dogs = furnitureList.filter((o) => o.userData?.furnitureType === 'dog');
 
-  for (const c of cats) {
-    showCustomSpeech(c, pickRandom(CAT_LINES), containerEl, 5000);
-  }
-  for (const d of dogs) {
-    showCustomSpeech(d, pickRandom(DOG_LINES), containerEl, 5000);
+  // 一人称(camera あり) かつ ペットが居る場合は足元へ召喚
+  if (camera && (cats.length > 0 || dogs.length > 0)) {
+    const { leftFoot, rightFoot, camPos } = computeFootPositions(camera);
+    for (const c of cats) summonPetToFoot(c, leftFoot, camPos);
+    for (const d of dogs) summonPetToFoot(d, rightFoot, camPos);
   }
 
-  // 中央バナーで「OYOYO! クリア！」を一緒に表示
+  // 吹き出し
+  for (const c of cats) {
+    showCustomSpeech(c, pickRandom(CAT_LINES), containerEl, 5500);
+  }
+  for (const d of dogs) {
+    showCustomSpeech(d, pickRandom(DOG_LINES), containerEl, 5500);
+  }
+
+  // 中央バナー
   showCenterBanner(containerEl, '🎉 オヨヨ揃った！クリア！ 🎉', 4500);
 }
