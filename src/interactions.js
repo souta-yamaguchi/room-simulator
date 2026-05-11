@@ -12,8 +12,11 @@
 // サブパーツ側は userData.role や userData.curtainSide などでタグ付けする。
 import { triggerOjoyoWin } from './ojoyoWin.js';
 
-const OJOYO_LIFT = 0.18;          // カードを持ち上げる高さ
-const OJOYO_DURATION = 1.2;       // シャッフル全体の秒数
+const OJOYO_LIFT = 0.20;          // カードを持ち上げる高さ
+const OJOYO_DURATION = 1.6;       // シャッフル全体の秒数
+const OJOYO_GATHER_END = 0.32;    // この時点までに中央へ集合
+const OJOYO_HOLD_END = 0.58;      // この時点まで中央で混ぜる
+// 0.58〜1.0: 散らばって着地
 
 function shufflePermutation() {
   const arr = [0, 1, 2];
