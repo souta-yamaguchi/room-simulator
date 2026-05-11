@@ -804,6 +804,75 @@ export function setupUI({ scene, room, furnitureList, selector, setStatus, camer
     }
   }
 
+  // --- 本番反映ボタン (Cloudflare Pages Function 経由で GitHub commit → 自動デプロイ)
+  const DEPLOY_KEY_STORAGE = 'room_deploy_key_v1';
+  const deployBtn = document.getElementById('deploy-btn');
+  if (deployBtn) {
+    deployBtn.addEventListener('click', async () => {
+      if (!confirm('本番サイト (room-simulator.pages.dev) に現在の編集内容を反映します。\nGitHubへ自動コミットされ、2-3分後に公開されます。\n\nよろしいですか？')) return;
+
+      let deployKey = localStorage.getItem(DEPLOY_KEY_STORAGE);
+      if (!deployKey) {
+        deployKey = prompt('デプロイ用パスフレーズを入力してください (初回のみ・Cloudflareの環境変数 DEPLOY_KEY と同じ文字列)');
+        if (!deployKey) return;
+        deployKey = deployKey.trim();
+        if (!deployKey) return;
+        localStorage.setItem(DEPLOY_KEY_STORAGE, deployKey);
+      }
+
+      const wallMatNoMap = room.wallMaterial && !room.wallMaterial.map;
+      const wallColor = wallMatNoMap ? '#' + room.wallMaterial.color.getHexString() : null;
+      const payload = {
+        room: { shape: room.shape, width: room.width, depth: room.depth, height: room.height,
+                notchW: room.notchW, notchD: room.notchD, wallpaper: room.currentWallpaper,
+                floor: room.currentFloor, wallColor,
+                wallColorOverrides: { ...room.wallColorOverrides },
+                wallExpand: { ...room.wallExpand },
+                ceilingColor: '#' + room.ceilingMaterial.color.getHexString(),
+                ceilingVisible: room.ceiling.visible },
+        furniture: furnitureList.map(serializeFurniture),
+        visitorNpcPatterns: loadPatterns(),
+      };
+
+      const originalLabel = deployBtn.textContent;
+      deployBtn.disabled = true;
+      deployBtn.textContent = '🚀 反映中...';
+      setStatus('本番に反映中...');
+
+      try {
+        const res = await fetch('/api/save-layout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Deploy-Key': deployKey,
+          },
+          body: JSON.stringify(payload),
+        });
+        let data = null;
+        try { data = await res.json(); } catch {}
+
+        if (res.status === 200 && data?.ok) {
+          setStatus(`✅ 本番反映トリガー成功 (${data.commit?.slice(0,7) || 'commit'}). 2-3分後に反映されます`);
+        } else if (res.status === 401) {
+          localStorage.removeItem(DEPLOY_KEY_STORAGE);
+          setStatus('❌ パスフレーズが違います。次回もう一度入力してください');
+          alert('デプロイ用パスフレーズが違います。\n保存したキーを破棄しました。次回ボタンを押すと再入力できます。');
+        } else if (res.status === 404) {
+          setStatus('❌ API が見つかりません (ローカル環境では未対応・本番でお試しください)');
+        } else {
+          const msg = data?.error || `HTTP ${res.status}`;
+          setStatus(`❌ 反映失敗: ${msg}`);
+          alert(`本番反映に失敗しました:\n${msg}`);
+        }
+      } catch (e) {
+        setStatus(`❌ 通信エラー: ${e.message}`);
+      } finally {
+        deployBtn.disabled = false;
+        deployBtn.textContent = originalLabel;
+      }
+    });
+  }
+
   document.getElementById('reset-btn').addEventListener('click', () => {
     if (!confirm('全ての家具・ドア・窓を削除します。よろしいですか？')) return;
     selector.deselect();
